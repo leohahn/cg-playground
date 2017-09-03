@@ -18,12 +18,13 @@
 #define LEN_NAME PATH_MAX
 #else
 // @FIXME(leo): This should not be harcoded for other operating systems.
-#define LEN_NAME         16
+#define LEN_NAME         64
 #endif
+
 #define EVENT_SIZE       (sizeof(struct inotify_event))
 #define MAX_EVENTS       1024
 #define BUF_LEN          (MAX_EVENTS * (EVENT_SIZE + LEN_NAME))
-#define PATH             "/home/lhahn/dev/cpp/quadrado/resources"
+#define PATH             "/home/lhahn/dev/cpp/rigid-body-simulation/resources"
 #define EVENT_BUFFER_LEN 50
 
 using std::string;

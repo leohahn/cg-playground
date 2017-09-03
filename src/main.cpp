@@ -17,16 +17,16 @@
 
 #include "stb_image.h"
 
-static lt::Logger logger("main");
+lt_internal lt::Logger logger("main");
 
-static void
+lt_internal void
 framebuffer_size_callback(GLFWwindow *w, i32 width, i32 height)
 {
     LT_Unused(w);
     glViewport(0, 0, width, height);
 }
 
-static void
+lt_internal void
 process_input(GLFWwindow *win, bool *keyboard)
 {
     if (glfwGetKey(win, GLFW_KEY_ESCAPE) == GLFW_PRESS ||
@@ -45,7 +45,7 @@ process_input(GLFWwindow *win, bool *keyboard)
     keyboard[GLFW_KEY_RIGHT] = glfwGetKey(win, GLFW_KEY_RIGHT);
 }
 
-static void
+lt_internal void
 process_watcher_events()
 {
     WatcherEvent *ev;
@@ -65,7 +65,7 @@ process_watcher_events()
     }
 }
 
-static GLFWwindow *
+lt_internal GLFWwindow *
 create_window_and_set_context(const char *title, i32 width, i32 height)
 {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -84,6 +84,16 @@ create_window_and_set_context(const char *title, i32 width, i32 height)
     glfwMakeContextCurrent(window);
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
+    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
+        LT_Fail("Failed to initialize GLAD\n");
+
+    glEnable(GL_CULL_FACE);
+    // glFrontFace(GL_CCW);
+    // glCullFace(GL_FRONT);
+
+    glEnable(GL_DEPTH_TEST);
+    glViewport(0, 0, width, height);
+
     return window;
 }
 
@@ -96,10 +106,8 @@ create_window_and_set_context(const char *title, i32 width, i32 height)
  *      https://www.youtube.com/watch?v=fKIss4EV6ME
  *      Double-cover: https://mollyrocket.com/837
  *
- *    [1] Make the camera work freely on 3 dimensions with quaternions.
- *        - Test the quaternion implementation on the camera object!!!!
- *    [2] Create code to load 3d models and render them with textures.
- *    [3] TODO
+ *    [1] Create code to load 3d models and render them with textures.
+ *    [2] TODO
  */
 
 int
@@ -118,11 +126,6 @@ main(void)
 
     GLFWwindow *window = create_window_and_set_context("Hot Shader Loader", WINDOW_WIDTH, WINDOW_HEIGHT);
 
-    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
-        LT_Fail("Failed to initialize GLAD\n");
-
-    glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
-
 #ifdef DEV_ENV
     pthread_t watcher_thread;
     logger.log("Creating watcher thread");
@@ -134,28 +137,69 @@ main(void)
     const f32 FIELD_OF_VIEW = 60.0f;
     const f32 MOVE_SPEED = 0.05f;
     const f32 ROTATION_SPEED = 0.02f;
-    Camera camera(Vec3f(0.0f, 0.0f, -20.0f), Vec3f(0.0f, 0.0f, 1.0f), Vec3f(0.0f, 1.0f, 0.0f),
+    Camera camera(Vec3f(0.0f, 0.0f, 20.0f), Vec3f(0.0f, 0.0f, -1.0f), Vec3f(0.0f, 1.0f, 0.0f),
                   FIELD_OF_VIEW, ASPECT_RATIO, MOVE_SPEED, ROTATION_SPEED);
-
-    GLfloat vertices[] = {
-        // vertices       texture coords
-        0.0f, 0.0f, 0.0f,  0.0f, 0.0f,
-        2.0f, 0.0f, 0.0f, 1.0f, 0.0f,
-        2.0f, 2.0f, 0.0f, 1.0f, 1.0f,
-
-        2.0f, 2.0f, 0.0f, 1.0f, 1.0f,
-        0.0f, 2.0f, 0.0f, 1.0f, 0.0f,
-        0.0f, 0.0f, 0.0f,  0.0f, 0.0f,
-    };
 
     GLuint vao, vbo;
     {
+        GLfloat cube_vertices[] = {
+            // vertices       texture coords
+            // FRONT
+            -2.0f, -2.0f,  2.0f, 0.0f, 0.0f,
+             2.0f, -2.0f,  2.0f, 1.0f, 0.0f,
+             2.0f,  2.0f,  2.0f, 1.0f, 1.0f,
+
+             2.0f,  2.0f,  2.0f, 1.0f, 1.0f,
+            -2.0f,  2.0f,  2.0f, 1.0f, 0.0f,
+            -2.0f, -2.0f,  2.0f, 0.0f, 0.0f,
+            // BACK
+            -2.0f, -2.0f, -2.0f, 0.0f, 0.0f,
+            -2.0f,  2.0f, -2.0f, 1.0f, 0.0f,
+             2.0f,  2.0f, -2.0f, 1.0f, 1.0f,
+
+             2.0f,  2.0f, -2.0f, 1.0f, 1.0f,
+             2.0f, -2.0f, -2.0f, 1.0f, 0.0f,
+            -2.0f, -2.0f, -2.0f, 0.0f, 0.0f,
+            // LEFT
+            -2.0f, -2.0f,  2.0f, 0.0f, 1.0f,
+            -2.0f,  2.0f,  2.0f, 1.0f, 1.0f,
+            -2.0f,  2.0f, -2.0f, 1.0f, 0.0f,
+
+            -2.0f,  2.0f, -2.0f, 1.0f, 0.0f,
+            -2.0f, -2.0f, -2.0f, 0.0f, 0.0f,
+            -2.0f, -2.0f,  2.0f, 0.0f, 1.0f,
+            // RIGHT
+             2.0f, -2.0f,  2.0f, 0.0f, 1.0f,
+             2.0f, -2.0f, -2.0f, 1.0f, 1.0f,
+             2.0f,  2.0f, -2.0f, 1.0f, 0.0f,
+
+             2.0f,  2.0f, -2.0f, 1.0f, 0.0f,
+             2.0f,  2.0f,  2.0f, 0.0f, 0.0f,
+             2.0f, -2.0f,  2.0f, 0.0f, 1.0f,
+            // TOP
+           -2.0f,  2.0f,  2.0f, 0.0f, 1.0f,
+            2.0f,  2.0f,  2.0f, 1.0f, 1.0f,
+            2.0f,  2.0f, -2.0f, 1.0f, 0.0f,
+
+            2.0f,  2.0f, -2.0f, 1.0f, 0.0f,
+           -2.0f,  2.0f, -2.0f, 0.0f, 0.0f,
+           -2.0f,  2.0f,  2.0f, 0.0f, 1.0f,
+            // BOTTOM
+           -2.0f, -2.0f,  2.0f, 0.0f, 1.0f,
+           -2.0f, -2.0f, -2.0f, 1.0f, 1.0f,
+            2.0f, -2.0f, -2.0f, 1.0f, 0.0f,
+
+            2.0f, -2.0f, -2.0f, 1.0f, 0.0f,
+            2.0f, -2.0f,  2.0f, 1.0f, 1.0f,
+           -2.0f, -2.0f,  2.0f, 0.0f, 1.0f,
+        };
+
         glGenVertexArrays(1, &vao);
         glGenBuffers(1, &vbo);
 
         glBindVertexArray(vao);
         glBindBuffer(GL_ARRAY_BUFFER, vbo);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(cube_vertices), cube_vertices, GL_STATIC_DRAW);
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5*sizeof(GLfloat), (GLvoid*)0);
         glEnableVertexAttribArray(0);
         glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5*sizeof(GLfloat), (GLvoid*)(3*sizeof(GLfloat)));
@@ -255,7 +299,6 @@ main(void)
             //
             // Rotation
             //
-
             if (keyboard[GLFW_KEY_RIGHT] == GLFW_PRESS)
                 camera.rotate(Camera::RotationAxis::Up, -delta);
 
@@ -292,7 +335,7 @@ main(void)
 
         glBindTexture(GL_TEXTURE_2D, texture);
         glBindVertexArray(vao);
-        glDrawArrays(GL_TRIANGLES, 0, 6);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
         glBindVertexArray(0);
 #else
         draw_tile_map(tile_map);

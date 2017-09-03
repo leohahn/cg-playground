@@ -27,7 +27,7 @@ lt_internal const char *shader_names[] =
 
 lt_internal lt::Logger logger("shader");
 // TODO: Try not to use hardcoded path.
-lt_internal const char *resources_path = "/home/lhahn/dev/cpp/quadrado/resources/";
+lt_internal const char *resources_path = "/home/lhahn/dev/cpp/rigid-body-simulation/resources/";
 lt_internal Shader g_shaders[ShaderKind_Count] = {};
 lt_internal i32 g_current_shader_index = -1;
 
