@@ -30,6 +30,7 @@ lt_internal lt::Logger logger("shader");
 lt_internal const char *resources_path = "/home/lhahn/dev/cpp/rigid-body-simulation/resources/";
 lt_internal Shader g_shaders[ShaderKind_Count] = {};
 lt_internal i32 g_current_shader_index = -1;
+lt_internal std::function<void(ShaderKind)> g_on_recompilation_handler = nullptr;
 
 void
 shader_set(ShaderKind kind)
@@ -43,7 +44,7 @@ shader_set(ShaderKind kind)
 #endif
     if (should_reuse_shader)
     {
-        logger.log("Using ", shader_names[kind], " shader");
+        // logger.log("Using ", shader_names[kind], " shader");
         glUseProgram(g_shaders[kind].program);
 #ifdef DEV_ENV
         g_shaders[kind].is_stale = false;
@@ -52,8 +53,15 @@ shader_set(ShaderKind kind)
     }
 }
 
-GLuint
-shader_make_program(const char* shader_name)
+void
+shader_on_recompilation(const std::function<void(ShaderKind)> &handler)
+{
+    LT_Assert(g_on_recompilation_handler == nullptr);
+    g_on_recompilation_handler = handler;
+}
+
+lt_internal GLuint
+make_program(const char* shader_name)
 {
     using std::string;
 
@@ -154,15 +162,15 @@ GLuint shader_get_program(ShaderKind kind) { return g_shaders[kind].program; }
 void
 shader_recompile(ShaderKind kind)
 {
-    switch (kind) {
+    switch (kind)
+    {
     case ShaderKind_Basic: {
         logger.log("Recompiling Basic Shader");
         GLuint old_program = g_shaders[kind].program;
-        GLuint new_program = shader_make_program("basic.glsl");
+        GLuint new_program = make_program("basic.glsl");
 
-        if (new_program == 0) {
+        if (new_program == 0)
             return;
-        }
 
         g_shaders[kind].program = new_program;
 #ifdef DEV_ENV
@@ -175,14 +183,21 @@ shader_recompile(ShaderKind kind)
     default:
         LT_Assert(false);
     }
+
+    if (g_on_recompilation_handler) g_on_recompilation_handler(kind);
 }
 
 void
 shader_initialize(void)
 {
     Shader basic_shader;
-    basic_shader.program = shader_make_program("basic.glsl");
+    basic_shader.program = make_program("basic.glsl");
     basic_shader.is_stale = false;
 
+    Shader light_shader;
+    light_shader.program = make_program("light.glsl");
+    light_shader.is_stale = false;
+
     g_shaders[ShaderKind_Basic] = basic_shader;
+    g_shaders[ShaderKind_Light] = light_shader;
 }

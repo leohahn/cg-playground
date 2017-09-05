@@ -1,5 +1,7 @@
 #include <stdio.h>
 
+#include <functional>
+
 #include "glad/glad.h"
 #include <GLFW/glfw3.h>
 
@@ -14,6 +16,8 @@
 #include "watcher.hpp"
 #include "shader.hpp"
 #include "camera.hpp"
+#include "draw.hpp"
+#include "gl_resources.hpp"
 
 #include "stb_image.h"
 
@@ -97,17 +101,74 @@ create_window_and_set_context(const char *title, i32 width, i32 height)
     return window;
 }
 
+void
+setup_projection_matrices(f32 aspect_ratio)
+{
+    const Mat4f projection = lt::perspective<f32>(60.0f, aspect_ratio, 0.1f, 100.0f);
+    const GLuint projection_loc = glGetUniformLocation(shader_get_program(ShaderKind_Basic), "projection");
+    shader_set(ShaderKind_Basic);
+    glUniformMatrix4fv(projection_loc, 1, GL_FALSE, projection.data());
+    shader_set(ShaderKind_Light);
+    glUniformMatrix4fv(projection_loc, 1, GL_FALSE, projection.data());
+}
+
+void
+game_update(bool *keyboard, Camera& camera, f64 delta)
+{
+    // Move
+    if (keyboard[GLFW_KEY_A] == GLFW_PRESS)
+        camera.move(Camera::Direction::Left, delta);
+
+    if (keyboard[GLFW_KEY_D] == GLFW_PRESS)
+        camera.move(Camera::Direction::Right, delta);
+
+    if (keyboard[GLFW_KEY_W] == GLFW_PRESS)
+        camera.move(Camera::Direction::Forwards, delta);
+
+    if (keyboard[GLFW_KEY_S] == GLFW_PRESS)
+        camera.move(Camera::Direction::Backwards, delta);
+
+    // Rotation
+    if (keyboard[GLFW_KEY_RIGHT] == GLFW_PRESS)
+        camera.rotate(Camera::RotationAxis::Up, -delta);
+
+    if (keyboard[GLFW_KEY_LEFT] == GLFW_PRESS)
+        camera.rotate(Camera::RotationAxis::Up, delta);
+
+    if (keyboard[GLFW_KEY_UP] == GLFW_PRESS)
+        camera.rotate(Camera::RotationAxis::Right, delta);
+
+    if (keyboard[GLFW_KEY_DOWN] == GLFW_PRESS)
+        camera.rotate(Camera::RotationAxis::Right, -delta);
+}
+
+struct PointLight
+{
+    Vec3f position;
+    Vec3f scaling;
+    Vec3f color;
+    u32   vao;
+
+    PointLight(Vec3f position, Vec3f scaling, Vec3f color)
+        : position(position)
+        , scaling(scaling)
+        , color(color)
+        , vao(gl_resources_create_vao())
+    {
+        gl_resources_attrs_vertices(vao, BufferType::UnitCube);
+    }
+};
+
 /*
  *  TODO:
- *    Implement some form of rigit body simulation.
- *    Reference: https://developer.nvidia.com/gpugems/GPUGems3/gpugems3_ch29.html
+ *    Learn:
+ *      - Advanced lighting
+ *      - Shadow maps
  *
- *    @Important: LEARN QUATERNIONS!!!!
- *      https://www.youtube.com/watch?v=fKIss4EV6ME
- *      Double-cover: https://mollyrocket.com/837
- *
- *    [1] Create code to load 3d models and render them with textures.
- *    [2] TODO
+ *    [1] Implement basic lighting
+ *    [2] Implement shadow maps
+ *    [3] Create code to load 3d models and render them with textures.
+ *    [3] TODO
  */
 
 int
@@ -133,6 +194,12 @@ main(void)
 #endif
 
     shader_initialize();
+    shader_on_recompilation([ASPECT_RATIO](ShaderKind kind) {
+        LT_Unused(kind);
+        setup_projection_matrices(ASPECT_RATIO);
+    });
+
+    gl_resources_initialize();
 
     const f32 FIELD_OF_VIEW = 60.0f;
     const f32 MOVE_SPEED = 0.05f;
@@ -140,76 +207,16 @@ main(void)
     Camera camera(Vec3f(0.0f, 0.0f, 20.0f), Vec3f(0.0f, 0.0f, -1.0f), Vec3f(0.0f, 1.0f, 0.0f),
                   FIELD_OF_VIEW, ASPECT_RATIO, MOVE_SPEED, ROTATION_SPEED);
 
-    GLuint vao, vbo;
-    {
-        GLfloat cube_vertices[] = {
-            // vertices       texture coords
-            // FRONT
-            -2.0f, -2.0f,  2.0f, 0.0f, 0.0f,
-             2.0f, -2.0f,  2.0f, 1.0f, 0.0f,
-             2.0f,  2.0f,  2.0f, 1.0f, 1.0f,
+    u32 cube_vao = gl_resources_create_vao();
+    gl_resources_attrs_vertice_normal_texture(cube_vao, BufferType::UnitCube);
 
-             2.0f,  2.0f,  2.0f, 1.0f, 1.0f,
-            -2.0f,  2.0f,  2.0f, 1.0f, 0.0f,
-            -2.0f, -2.0f,  2.0f, 0.0f, 0.0f,
-            // BACK
-            -2.0f, -2.0f, -2.0f, 0.0f, 0.0f,
-            -2.0f,  2.0f, -2.0f, 1.0f, 0.0f,
-             2.0f,  2.0f, -2.0f, 1.0f, 1.0f,
+    PointLight light(Vec3f(3.0f, 5.0f, 0.0f), Vec3f(0.2f, 0.2f, 0.2f), Vec3f(1.0f, 1.0f, 1.0f));
 
-             2.0f,  2.0f, -2.0f, 1.0f, 1.0f,
-             2.0f, -2.0f, -2.0f, 1.0f, 0.0f,
-            -2.0f, -2.0f, -2.0f, 0.0f, 0.0f,
-            // LEFT
-            -2.0f, -2.0f,  2.0f, 0.0f, 1.0f,
-            -2.0f,  2.0f,  2.0f, 1.0f, 1.0f,
-            -2.0f,  2.0f, -2.0f, 1.0f, 0.0f,
-
-            -2.0f,  2.0f, -2.0f, 1.0f, 0.0f,
-            -2.0f, -2.0f, -2.0f, 0.0f, 0.0f,
-            -2.0f, -2.0f,  2.0f, 0.0f, 1.0f,
-            // RIGHT
-             2.0f, -2.0f,  2.0f, 0.0f, 1.0f,
-             2.0f, -2.0f, -2.0f, 1.0f, 1.0f,
-             2.0f,  2.0f, -2.0f, 1.0f, 0.0f,
-
-             2.0f,  2.0f, -2.0f, 1.0f, 0.0f,
-             2.0f,  2.0f,  2.0f, 0.0f, 0.0f,
-             2.0f, -2.0f,  2.0f, 0.0f, 1.0f,
-            // TOP
-           -2.0f,  2.0f,  2.0f, 0.0f, 1.0f,
-            2.0f,  2.0f,  2.0f, 1.0f, 1.0f,
-            2.0f,  2.0f, -2.0f, 1.0f, 0.0f,
-
-            2.0f,  2.0f, -2.0f, 1.0f, 0.0f,
-           -2.0f,  2.0f, -2.0f, 0.0f, 0.0f,
-           -2.0f,  2.0f,  2.0f, 0.0f, 1.0f,
-            // BOTTOM
-           -2.0f, -2.0f,  2.0f, 0.0f, 1.0f,
-           -2.0f, -2.0f, -2.0f, 1.0f, 1.0f,
-            2.0f, -2.0f, -2.0f, 1.0f, 0.0f,
-
-            2.0f, -2.0f, -2.0f, 1.0f, 0.0f,
-            2.0f, -2.0f,  2.0f, 1.0f, 1.0f,
-           -2.0f, -2.0f,  2.0f, 0.0f, 1.0f,
-        };
-
-        glGenVertexArrays(1, &vao);
-        glGenBuffers(1, &vbo);
-
-        glBindVertexArray(vao);
-        glBindBuffer(GL_ARRAY_BUFFER, vbo);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(cube_vertices), cube_vertices, GL_STATIC_DRAW);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5*sizeof(GLfloat), (GLvoid*)0);
-        glEnableVertexAttribArray(0);
-        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5*sizeof(GLfloat), (GLvoid*)(3*sizeof(GLfloat)));
-        glEnableVertexAttribArray(1);
-    }
-    GLuint texture;
+    GLuint box_texture;
     {
         // Textures
-        glGenTextures(1, &texture);
-        glBindTexture(GL_TEXTURE_2D, texture);
+        glGenTextures(1, &box_texture);
+        glBindTexture(GL_TEXTURE_2D, box_texture);
         // Wrapping and filtering
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
@@ -222,8 +229,6 @@ main(void)
         i32 width, height, num_channels;
         uchar *image_data = stbi_load("/home/lhahn/dev/cpp/quadrado/resources/wooden-create.png",
                                    &width, &height, &num_channels, 0);
-        // uchar *image_data = stbi_load("/home/lhahn/dev/cpp/quadrado/resources/brick_wall.jpg",
-        //                            &width, &height, &num_channels, 0);
         if (image_data)
         {
             logger.log("Texture image loaded successfuly.");
@@ -235,10 +240,11 @@ main(void)
         {
             logger.error("Failed loading texture");
         }
-
         // Free image
         stbi_image_free(image_data);
     }
+
+    setup_projection_matrices(ASPECT_RATIO);
 
     // Define variables to control time
     constexpr f64 DESIRED_FPS = 60.0;
@@ -274,7 +280,7 @@ main(void)
             continue;
         }
 
-        glClearColor(0.0f, 0.0f, 1.0f, 1.0f);
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         total_delta = frame_time / DESIRED_FRAMETIME;
@@ -282,64 +288,53 @@ main(void)
         while (total_delta > 0.0 && loops < MAX_STEPS)
         {
             delta = std::min(total_delta, MAX_DELTA_TIME);
-            // TODO: Eventually call an update function.
 
-            if (keyboard[GLFW_KEY_A] == GLFW_PRESS)
-                camera.move(Camera::Direction::Left, delta);
-
-            if (keyboard[GLFW_KEY_D] == GLFW_PRESS)
-                camera.move(Camera::Direction::Right, delta);
-
-            if (keyboard[GLFW_KEY_W] == GLFW_PRESS)
-                camera.move(Camera::Direction::Forwards, delta);
-
-            if (keyboard[GLFW_KEY_S] == GLFW_PRESS)
-                camera.move(Camera::Direction::Backwards, delta);
-
-            //
-            // Rotation
-            //
-            if (keyboard[GLFW_KEY_RIGHT] == GLFW_PRESS)
-                camera.rotate(Camera::RotationAxis::Up, -delta);
-
-            if (keyboard[GLFW_KEY_LEFT] == GLFW_PRESS)
-                camera.rotate(Camera::RotationAxis::Up, delta);
-
-            if (keyboard[GLFW_KEY_UP] == GLFW_PRESS)
-                camera.rotate(Camera::RotationAxis::Right, delta);
-
-            if (keyboard[GLFW_KEY_DOWN] == GLFW_PRESS)
-                camera.rotate(Camera::RotationAxis::Right, -delta);
+            game_update(keyboard, camera, delta);
 
             total_delta -= delta;
             loops++;
         }
 
+        const Mat4f view = camera.view_matrix();
         // TODO: Eventually call a render function here.
-#if 1
-        shader_set(ShaderKind_Basic);
+        {
+            shader_set(ShaderKind_Basic);
 
-        Mat4f model(1.0f);
-        GLuint model_loc = glGetUniformLocation(shader_get_program(ShaderKind_Basic), "model");
+            const Mat4f model(1.0f);
+            const GLuint model_loc = glGetUniformLocation(shader_get_program(ShaderKind_Basic), "model");
+            glUniformMatrix4fv(model_loc, 1, GL_FALSE, model.data());
 
-        // Mat4f view = lt::look_at(Vec3f(0.0f, 0.0f, -5.0f), Vec3f(0.0f, 0.0f, 0.0f), Vec3f(0.0f, 1.0f, 0.0f));
-        Mat4f view = camera.view_matrix();
-        GLuint view_loc = glGetUniformLocation(shader_get_program(ShaderKind_Basic), "view");
+            const GLuint view_loc = glGetUniformLocation(shader_get_program(ShaderKind_Basic), "view");
+            glUniformMatrix4fv(view_loc, 1, GL_FALSE, view.data());
 
-        Mat4f projection = lt::perspective<f32>(60.0f, ASPECT_RATIO, 0.1f, 100.0f);
-        GLuint projection_loc = glGetUniformLocation(shader_get_program(ShaderKind_Basic), "projection");
+            glUniform3f(glGetUniformLocation(shader_get_program(ShaderKind_Basic), "light_color"),
+                        light.color.x, light.color.y, light.color.z);
+            glUniform3f(glGetUniformLocation(shader_get_program(ShaderKind_Basic), "light_position"),
+                        light.position.x, light.position.y, light.position.z);
+            glUniform3f(glGetUniformLocation(shader_get_program(ShaderKind_Basic), "view_position"),
+                        camera.frustum.position.x, camera.frustum.position.y, camera.frustum.position.z);
 
-        glUniformMatrix4fv(model_loc, 1, GL_FALSE, model.data());
-        glUniformMatrix4fv(view_loc, 1, GL_FALSE, view.data());
-        glUniformMatrix4fv(projection_loc, 1, GL_FALSE, projection.data());
+            glBindTexture(GL_TEXTURE_2D, box_texture);
+            glBindVertexArray(cube_vao);
+            glDrawArrays(GL_TRIANGLES, 0, UNIT_CUBE_NUM_VERTICES);
+            glBindVertexArray(0);
+        }
+        {
+            shader_set(ShaderKind_Light);
 
-        glBindTexture(GL_TEXTURE_2D, texture);
-        glBindVertexArray(vao);
-        glDrawArrays(GL_TRIANGLES, 0, 36);
-        glBindVertexArray(0);
-#else
-        draw_tile_map(tile_map);
-#endif
+            Mat4f model = lt::translation(Mat4f(1.0f), light.position);
+            model = lt::scale(model, light.scaling);
+
+            const GLuint model_loc = glGetUniformLocation(shader_get_program(ShaderKind_Light), "model");
+            glUniformMatrix4fv(model_loc, 1, GL_FALSE, model.data());
+
+            const GLuint view_loc = glGetUniformLocation(shader_get_program(ShaderKind_Light), "view");
+            glUniformMatrix4fv(view_loc, 1, GL_FALSE, view.data());
+
+            glBindVertexArray(light.vao);
+            glDrawArrays(GL_TRIANGLES, 0, UNIT_CUBE_NUM_VERTICES);
+            glBindVertexArray(0);
+        }
 
         glfwSwapBuffers(window);
         glfwPollEvents();

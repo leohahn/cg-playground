@@ -16,7 +16,7 @@ glfw3_dep  = dependency('glfw3')
 cpp_args = ['-Wall', '-DDEV_ENV', '-g']
 executable('rbs',
            'src/main.cpp', 'src/glad/glad.cpp', 'src/watcher.cpp', 'src/shader.cpp',
-           'lt/src/lt_fs.cpp', 'lt/src/lt_math.cpp', 'src/camera.cpp',
+           'lt/src/lt_fs.cpp', 'lt/src/lt_math.cpp', 'src/camera.cpp', 'src/gl_resources.cpp',
            'src/stb_image.cpp',
            dependencies: [
              thread_dep,
