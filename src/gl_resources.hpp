@@ -3,6 +3,10 @@
 
 #include "lt_core.hpp"
 
+#ifndef RESOURCES_PATH
+#define RESOURCES_PATH "/home/lhahn/dev/cpp/rigid-body-simulation/resources/"
+#endif
+
 enum class BufferType
 {
     UnitCube,
@@ -68,18 +72,18 @@ constexpr f32 UNIT_CUBE_VERTICES[] = {
      1.0f, -1.0f,  1.0f,   0.0f, -1.0f,  0.0f,   1.0f, 1.0f,
     -1.0f, -1.0f,  1.0f,   0.0f, -1.0f,  0.0f,   0.0f, 1.0f,
 };
-constexpr f32 UNIT_CUBE_NUM_VERTICES = LT_Count(UNIT_CUBE_VERTICES) / 5.0f;
+constexpr f32 UNIT_CUBE_NUM_VERTICES = LT_Count(UNIT_CUBE_VERTICES) / 8.0f;
 
 constexpr f32 UNIT_PLANE_VERTICES[] = {
-    // vertices          texture coords
-    -1.0f,  1.0f,  1.0f, 0.0f, 1.0f,
-    1.0f,  1.0f,  1.0f,  1.0f, 1.0f,
-    1.0f,  1.0f, -1.0f,  1.0f, 0.0f,
+    // vertices           normals             texture coords
+    -1.0f,  0.0f,  1.0f,  0.0f, 1.0f, 0.0f,   0.0f, 10.0f,
+     1.0f,  0.0f,  1.0f,  0.0f, 1.0f, 0.0f,   10.0f,10.0f,
+     1.0f,  0.0f, -1.0f,  0.0f, 1.0f, 0.0f,   10.0f, 0.0f,
 
-    1.0f,  1.0f, -1.0f,  1.0f, 0.0f,
-    -1.0f,  1.0f, -1.0f, 0.0f, 0.0f,
-    -1.0f,  1.0f,  1.0f, 0.0f, 1.0f,
+     1.0f,  0.0f, -1.0f,  0.0f, 1.0f, 0.0f,   10.0f, 0.0f,
+    -1.0f,  0.0f, -1.0f,  0.0f, 1.0f, 0.0f,   0.0f, 0.0f,
+    -1.0f,  0.0f,  1.0f,  0.0f, 1.0f, 0.0f,   0.0f, 10.0f,
 };
-constexpr f32 UNIT_PLANE_NUM_VERTICES = LT_Count(UNIT_PLANE_VERTICES) / 5.0f;
+constexpr f32 UNIT_PLANE_NUM_VERTICES = LT_Count(UNIT_PLANE_VERTICES) / 8.0f;
 
 #endif // GL_RESOURCES_HPP

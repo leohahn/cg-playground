@@ -1,10 +1,11 @@
+#include "shader.hpp"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string>
 
 #include "glad/glad.h"
 
-#include "shader.hpp"
+#include "gl_resources.hpp"
 #include "lt_core.hpp"
 #include "lt_fs.hpp"
 #include "lt_utils.hpp"
@@ -27,7 +28,6 @@ lt_internal const char *shader_names[] =
 
 lt_internal lt::Logger logger("shader");
 // TODO: Try not to use hardcoded path.
-lt_internal const char *resources_path = "/home/lhahn/dev/cpp/rigid-body-simulation/resources/";
 lt_internal Shader g_shaders[ShaderKind_Count] = {};
 lt_internal i32 g_current_shader_index = -1;
 lt_internal std::function<void(ShaderKind)> g_on_recompilation_handler = nullptr;
@@ -66,7 +66,7 @@ make_program(const char* shader_name)
     using std::string;
 
     // Fetch source codes from each shader
-    string shader_src_path = string(resources_path) + string(shader_name);
+    string shader_src_path = string(RESOURCES_PATH) + string(shader_name);
     FileContents *shader_src = file_read_contents(shader_src_path.c_str());
 
     LT_Assert(shader_src != nullptr);

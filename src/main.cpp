@@ -1,6 +1,7 @@
 #include <stdio.h>
 
 #include <functional>
+#include <string>
 
 #include "glad/glad.h"
 #include <GLFW/glfw3.h>
@@ -174,6 +175,7 @@ struct PointLight
 void
 load_texture(const char *path, GLuint &texture)
 {
+    std::string fullpath = std::string(RESOURCES_PATH) + std::string(path);
     // Textures
     glGenTextures(1, &texture);
     glBindTexture(GL_TEXTURE_2D, texture);
@@ -187,10 +189,10 @@ load_texture(const char *path, GLuint &texture)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     i32 width, height, num_channels;
-    uchar *image_data = stbi_load(path, &width, &height, &num_channels, 0);
+    uchar *image_data = stbi_load(fullpath.c_str(), &width, &height, &num_channels, 0);
     if (image_data)
     {
-        logger.log("Texture ", path, " loaded successfuly.");
+        logger.log("Texture ", fullpath, " loaded successfuly.");
         logger.log("[", width, " x ", height, "] (num channels = ", num_channels, ")");
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image_data);
         glGenerateMipmap(GL_TEXTURE_2D);
@@ -237,19 +239,21 @@ main(void)
     const f32 FIELD_OF_VIEW = 60.0f;
     const f32 MOVE_SPEED = 0.05f;
     const f32 ROTATION_SPEED = 0.02f;
-    Camera camera(Vec3f(0.0f, 0.0f, 20.0f), Vec3f(0.0f, 0.0f, -1.0f), Vec3f(0.0f, 1.0f, 0.0f),
+    Camera camera(Vec3f(0.0f, 5.0f, 10.0f), Vec3f(0.0f, 0.0f, -1.0f), Vec3f(0.0f, 1.0f, 0.0f),
                   FIELD_OF_VIEW, ASPECT_RATIO, MOVE_SPEED, ROTATION_SPEED);
 
     u32 cube_vao = gl_resources_create_vao();
     gl_resources_attrs_vertice_normal_texture(cube_vao, BufferType::UnitCube);
 
-    PointLight light(Vec3f(3.0f, 5.0f, 0.0f), Vec3f(0.2f, 0.2f, 0.2f), Vec3f(1.0f, 1.0f, 1.0f));
+    u32 floor_vao = gl_resources_create_vao();
+    gl_resources_attrs_vertice_normal_texture(floor_vao, BufferType::UnitPlane);
 
-    GLuint box_texture_diffuse, box_texture_specular;
-    load_texture("/home/lhahn/dev/cpp/rigid-body-simulation/resources/wooden-container.png",
-                 box_texture_diffuse);
-    load_texture("/home/lhahn/dev/cpp/rigid-body-simulation/resources/wooden-container-specular.png",
-                 box_texture_specular);
+    PointLight light(Vec3f(3.0f, 5.0f, 0.0f), Vec3f(0.1f, 0.1f, 0.1f), Vec3f(1.0f, 1.0f, 1.0f));
+
+    GLuint box_texture_diffuse, box_texture_specular, floor_texture_diffuse;
+    load_texture("wooden-container.png", box_texture_diffuse);
+    load_texture("wooden-container-specular.png", box_texture_specular);
+    load_texture("stone.png", floor_texture_diffuse);
 
     setup_projection_matrices(ASPECT_RATIO);
 
@@ -307,9 +311,10 @@ main(void)
         {
             shader_set(ShaderKind_Basic);
 
-            const Mat4f model(1.0f);
+            Mat4f box_model(1.0f);
+            box_model = lt::translation(box_model, Vec3f(0.0f, 1.0f, 0.0f));
             const GLuint model_loc = glGetUniformLocation(shader_get_program(ShaderKind_Basic), "model");
-            glUniformMatrix4fv(model_loc, 1, GL_FALSE, model.data());
+            glUniformMatrix4fv(model_loc, 1, GL_FALSE, box_model.data());
 
             const GLuint view_loc = glGetUniformLocation(shader_get_program(ShaderKind_Basic), "view");
             glUniformMatrix4fv(view_loc, 1, GL_FALSE, view.data());
@@ -320,11 +325,14 @@ main(void)
             glUniform3f(glGetUniformLocation(shader_get_program(ShaderKind_Basic), "light.position"),
                         light.position.x, light.position.y, light.position.z);
             glUniform3f(glGetUniformLocation(shader_get_program(ShaderKind_Basic), "light.ambient"),
-                        0.15f, 0.15f, 0.15f);
+                        0.10f, 0.10f, 0.10f);
             glUniform3f(glGetUniformLocation(shader_get_program(ShaderKind_Basic), "light.diffuse"),
                         0.7f, 0.7f, 0.7f);
             glUniform3f(glGetUniformLocation(shader_get_program(ShaderKind_Basic), "light.specular"),
                         1.0f, 1.0f, 1.0f);
+            glUniform1f(glGetUniformLocation(shader_get_program(ShaderKind_Basic), "light.constant"), 1.0f);
+            glUniform1f(glGetUniformLocation(shader_get_program(ShaderKind_Basic), "light.linear"), 0.35f);
+            glUniform1f(glGetUniformLocation(shader_get_program(ShaderKind_Basic), "light.quadratic"), 0.44f);
             glUniform3f(glGetUniformLocation(shader_get_program(ShaderKind_Basic), "view_position"),
                         camera.frustum.position.x, camera.frustum.position.y, camera.frustum.position.z);
 
@@ -335,6 +343,24 @@ main(void)
 
             glBindVertexArray(cube_vao);
             glDrawArrays(GL_TRIANGLES, 0, UNIT_CUBE_NUM_VERTICES);
+            glBindVertexArray(0);
+
+            // FLOOR
+
+            Mat4f floor_model(1);
+            floor_model = lt::scale(floor_model, Vec3f(10.0f));
+            glUniformMatrix4fv(model_loc, 1, GL_FALSE, floor_model.data());
+
+            glUniform3f(glGetUniformLocation(shader_get_program(ShaderKind_Basic), "light.specular"),
+                        0.5f, 0.5f, 0.5f);
+
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, floor_texture_diffuse);
+            glActiveTexture(GL_TEXTURE1);
+            glBindTexture(GL_TEXTURE_2D, floor_texture_diffuse);
+
+            glBindVertexArray(floor_vao);
+            glDrawArrays(GL_TRIANGLES, 0, UNIT_PLANE_NUM_VERTICES);
             glBindVertexArray(0);
         }
         {

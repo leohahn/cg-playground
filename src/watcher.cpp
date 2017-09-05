@@ -13,6 +13,7 @@
 
 #include "lt_core.hpp"
 #include "lt_utils.hpp"
+#include "gl_resources.hpp"
 
 #ifdef __linux__
 #define LEN_NAME PATH_MAX
@@ -24,7 +25,6 @@
 #define EVENT_SIZE       (sizeof(struct inotify_event))
 #define MAX_EVENTS       1024
 #define BUF_LEN          (MAX_EVENTS * (EVENT_SIZE + LEN_NAME))
-#define PATH             "/home/lhahn/dev/cpp/rigid-body-simulation/resources"
 #define EVENT_BUFFER_LEN 50
 
 using std::string;
@@ -157,7 +157,7 @@ watcher_start(void *arg)
         LT_Fail("Failed starting inotify.\n");
     }
 
-    i32 wd = inotify_add_watch((i32)fd, PATH, IN_MODIFY|IN_CREATE|IN_DELETE);
+    i32 wd = inotify_add_watch((i32)fd, RESOURCES_PATH, IN_MODIFY|IN_CREATE|IN_DELETE);
 
     if (wd < 0)
     {
@@ -170,7 +170,7 @@ watcher_start(void *arg)
 
     set_running(true);
 
-    logger.log("Watching folder ", PATH);
+    logger.log("Watching folder ", RESOURCES_PATH);
 
     fd_set read_fds;
 
@@ -221,7 +221,7 @@ watcher_start(void *arg)
             perror("error select(): ");
         }
     }
-    logger.log("Finished watching folder ", PATH);
+    logger.log("Finished watching folder ", RESOURCES_PATH);
 
     // Cleanup resources.
     inotify_rm_watch(fd, wd);
