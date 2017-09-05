@@ -171,6 +171,38 @@ struct PointLight
  *    [3] TODO
  */
 
+void
+load_texture(const char *path, GLuint &texture)
+{
+    // Textures
+    glGenTextures(1, &texture);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    // Wrapping and filtering
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    // Mipmaps
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    i32 width, height, num_channels;
+    uchar *image_data = stbi_load(path, &width, &height, &num_channels, 0);
+    if (image_data)
+    {
+        logger.log("Texture ", path, " loaded successfuly.");
+        logger.log("[", width, " x ", height, "] (num channels = ", num_channels, ")");
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image_data);
+        glGenerateMipmap(GL_TEXTURE_2D);
+    }
+    else
+    {
+        logger.error("Failed loading texture");
+    }
+    // Free image
+    stbi_image_free(image_data);
+}
+
 int
 main(void)
 {
@@ -194,7 +226,8 @@ main(void)
 #endif
 
     shader_initialize();
-    shader_on_recompilation([ASPECT_RATIO](ShaderKind kind) {
+    shader_on_recompilation([ASPECT_RATIO](ShaderKind kind)
+    {
         LT_Unused(kind);
         setup_projection_matrices(ASPECT_RATIO);
     });
@@ -212,37 +245,11 @@ main(void)
 
     PointLight light(Vec3f(3.0f, 5.0f, 0.0f), Vec3f(0.2f, 0.2f, 0.2f), Vec3f(1.0f, 1.0f, 1.0f));
 
-    GLuint box_texture;
-    {
-        // Textures
-        glGenTextures(1, &box_texture);
-        glBindTexture(GL_TEXTURE_2D, box_texture);
-        // Wrapping and filtering
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        // Mipmaps
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-        i32 width, height, num_channels;
-        uchar *image_data = stbi_load("/home/lhahn/dev/cpp/quadrado/resources/wooden-create.png",
-                                   &width, &height, &num_channels, 0);
-        if (image_data)
-        {
-            logger.log("Texture image loaded successfuly.");
-            logger.log("width = ", width, " and height = ", height, " (num channels = ", num_channels, ")");
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image_data);
-            glGenerateMipmap(GL_TEXTURE_2D);
-        }
-        else
-        {
-            logger.error("Failed loading texture");
-        }
-        // Free image
-        stbi_image_free(image_data);
-    }
+    GLuint box_texture_diffuse, box_texture_specular;
+    load_texture("/home/lhahn/dev/cpp/rigid-body-simulation/resources/wooden-container.png",
+                 box_texture_diffuse);
+    load_texture("/home/lhahn/dev/cpp/rigid-body-simulation/resources/wooden-container-specular.png",
+                 box_texture_specular);
 
     setup_projection_matrices(ASPECT_RATIO);
 
@@ -307,14 +314,25 @@ main(void)
             const GLuint view_loc = glGetUniformLocation(shader_get_program(ShaderKind_Basic), "view");
             glUniformMatrix4fv(view_loc, 1, GL_FALSE, view.data());
 
-            glUniform3f(glGetUniformLocation(shader_get_program(ShaderKind_Basic), "light_color"),
-                        light.color.x, light.color.y, light.color.z);
-            glUniform3f(glGetUniformLocation(shader_get_program(ShaderKind_Basic), "light_position"),
+            glUniform1i(glGetUniformLocation(shader_get_program(ShaderKind_Basic), "material.diffuse"), 0);
+            glUniform1i(glGetUniformLocation(shader_get_program(ShaderKind_Basic), "material.specular"), 1);
+            glUniform1f(glGetUniformLocation(shader_get_program(ShaderKind_Basic), "material.shininess"), 64);
+            glUniform3f(glGetUniformLocation(shader_get_program(ShaderKind_Basic), "light.position"),
                         light.position.x, light.position.y, light.position.z);
+            glUniform3f(glGetUniformLocation(shader_get_program(ShaderKind_Basic), "light.ambient"),
+                        0.15f, 0.15f, 0.15f);
+            glUniform3f(glGetUniformLocation(shader_get_program(ShaderKind_Basic), "light.diffuse"),
+                        0.7f, 0.7f, 0.7f);
+            glUniform3f(glGetUniformLocation(shader_get_program(ShaderKind_Basic), "light.specular"),
+                        1.0f, 1.0f, 1.0f);
             glUniform3f(glGetUniformLocation(shader_get_program(ShaderKind_Basic), "view_position"),
                         camera.frustum.position.x, camera.frustum.position.y, camera.frustum.position.z);
 
-            glBindTexture(GL_TEXTURE_2D, box_texture);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, box_texture_diffuse);
+            glActiveTexture(GL_TEXTURE1);
+            glBindTexture(GL_TEXTURE_2D, box_texture_specular);
+
             glBindVertexArray(cube_vao);
             glDrawArrays(GL_TRIANGLES, 0, UNIT_CUBE_NUM_VERTICES);
             glBindVertexArray(0);
