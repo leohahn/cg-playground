@@ -208,7 +208,7 @@ load_texture(const char *path, GLuint &texture)
 int
 main(void)
 {
-    static bool keyboard[1024] = {};
+    lt_local_persist bool keyboard[1024] = {};
     /* ==================================================================================
      *     OpenGL and GLFW initialization
      * ================================================================================== */
@@ -248,7 +248,12 @@ main(void)
     u32 floor_vao = gl_resources_create_vao();
     gl_resources_attrs_vertice_normal_texture(floor_vao, BufferType::UnitPlane);
 
-    PointLight light(Vec3f(3.0f, 5.0f, 0.0f), Vec3f(0.1f, 0.1f, 0.1f), Vec3f(1.0f, 1.0f, 1.0f));
+    PointLight lights[4] = {
+        PointLight(Vec3f(3.0f, 5.0f, 0.0f), Vec3f(0.1f, 0.1f, 0.1f), Vec3f(1.0f, 1.0f, 1.0f)),
+        PointLight(Vec3f(7.0f, 2.0f, 0.0f), Vec3f(0.1f, 0.1f, 0.1f), Vec3f(1.0f, 1.0f, 1.0f)),
+        PointLight(Vec3f(0.0f, 3.0f, 0.0f), Vec3f(0.1f, 0.1f, 0.1f), Vec3f(1.0f, 1.0f, 1.0f)),
+        PointLight(Vec3f(3.0f, 4.0f, 2.0f), Vec3f(0.1f, 0.1f, 0.1f), Vec3f(1.0f, 1.0f, 1.0f)),
+    };
 
     GLuint box_texture_diffuse, box_texture_specular, floor_texture_diffuse;
     load_texture("wooden-container.png", box_texture_diffuse);
@@ -322,17 +327,33 @@ main(void)
             glUniform1i(glGetUniformLocation(shader_get_program(ShaderKind_Basic), "material.diffuse"), 0);
             glUniform1i(glGetUniformLocation(shader_get_program(ShaderKind_Basic), "material.specular"), 1);
             glUniform1f(glGetUniformLocation(shader_get_program(ShaderKind_Basic), "material.shininess"), 64);
-            glUniform3f(glGetUniformLocation(shader_get_program(ShaderKind_Basic), "light.position"),
-                        light.position.x, light.position.y, light.position.z);
-            glUniform3f(glGetUniformLocation(shader_get_program(ShaderKind_Basic), "light.ambient"),
-                        0.10f, 0.10f, 0.10f);
-            glUniform3f(glGetUniformLocation(shader_get_program(ShaderKind_Basic), "light.diffuse"),
-                        0.7f, 0.7f, 0.7f);
-            glUniform3f(glGetUniformLocation(shader_get_program(ShaderKind_Basic), "light.specular"),
-                        1.0f, 1.0f, 1.0f);
-            glUniform1f(glGetUniformLocation(shader_get_program(ShaderKind_Basic), "light.constant"), 1.0f);
-            glUniform1f(glGetUniformLocation(shader_get_program(ShaderKind_Basic), "light.linear"), 0.35f);
-            glUniform1f(glGetUniformLocation(shader_get_program(ShaderKind_Basic), "light.quadratic"), 0.44f);
+
+            for (isize i = 0; i < 4; ++i)
+            {
+                std::string i_str = std::to_string(i);
+                GLuint pos_loc = glGetUniformLocation(shader_get_program(ShaderKind_Basic),
+                                                      ("point_lights[" + i_str + "].position").c_str());
+                GLuint ambient_loc = glGetUniformLocation(shader_get_program(ShaderKind_Basic),
+                                                          ("point_lights[" + i_str + "].ambient").c_str());
+                GLuint diffuse_loc = glGetUniformLocation(shader_get_program(ShaderKind_Basic),
+                                                          ("point_lights[" + i_str + "].diffuse").c_str());
+                GLuint specular_loc = glGetUniformLocation(shader_get_program(ShaderKind_Basic),
+                                                           ("point_lights[" + i_str + "].specular").c_str());
+                GLuint constant_loc = glGetUniformLocation(shader_get_program(ShaderKind_Basic),
+                                                           ("point_lights[" + i_str + "].constant").c_str());
+                GLuint linear_loc = glGetUniformLocation(shader_get_program(ShaderKind_Basic),
+                                                         ("point_lights[" + i_str + "].linear").c_str());
+                GLuint quadratic_loc = glGetUniformLocation(shader_get_program(ShaderKind_Basic),
+                                                            ("point_lights[" + i_str + "].quadratic").c_str());
+
+                glUniform3f(pos_loc, lights[i].position.x, lights[i].position.y, lights[i].position.z);
+                glUniform3f(ambient_loc, 0.10f, 0.10f, 0.10f);
+                glUniform3f(diffuse_loc, 0.7f, 0.7f, 0.7f);
+                glUniform3f(specular_loc, 1.0f, 1.0f, 1.0f);
+                glUniform1f(constant_loc, 1.0f);
+                glUniform1f(linear_loc, 0.35f);
+                glUniform1f(quadratic_loc, 0.44f);
+            }
             glUniform3f(glGetUniformLocation(shader_get_program(ShaderKind_Basic), "view_position"),
                         camera.frustum.position.x, camera.frustum.position.y, camera.frustum.position.z);
 
@@ -348,11 +369,15 @@ main(void)
             // FLOOR
 
             Mat4f floor_model(1);
-            floor_model = lt::scale(floor_model, Vec3f(10.0f));
+            floor_model = lt::scale(floor_model, Vec3f(20.0f));
             glUniformMatrix4fv(model_loc, 1, GL_FALSE, floor_model.data());
 
-            glUniform3f(glGetUniformLocation(shader_get_program(ShaderKind_Basic), "light.specular"),
-                        0.5f, 0.5f, 0.5f);
+            for (isize i = 0; i < 4; ++i)
+            {
+                GLuint loc = glGetUniformLocation(shader_get_program(ShaderKind_Basic),
+                                                  ("point_lights[" + std::to_string(i) + "].quadratic").c_str());
+                glUniform3f(loc, 0.5f, 0.5f, 0.5f);
+            }
 
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, floor_texture_diffuse);
@@ -366,18 +391,21 @@ main(void)
         {
             shader_set(ShaderKind_Light);
 
-            Mat4f model = lt::translation(Mat4f(1.0f), light.position);
-            model = lt::scale(model, light.scaling);
+            for (isize i = 0; i < 4; ++i)
+            {
+                Mat4f model = lt::translation(Mat4f(1.0f), lights[i].position);
+                model = lt::scale(model, lights[i].scaling);
 
-            const GLuint model_loc = glGetUniformLocation(shader_get_program(ShaderKind_Light), "model");
-            glUniformMatrix4fv(model_loc, 1, GL_FALSE, model.data());
+                const GLuint model_loc = glGetUniformLocation(shader_get_program(ShaderKind_Light), "model");
+                glUniformMatrix4fv(model_loc, 1, GL_FALSE, model.data());
 
-            const GLuint view_loc = glGetUniformLocation(shader_get_program(ShaderKind_Light), "view");
-            glUniformMatrix4fv(view_loc, 1, GL_FALSE, view.data());
+                const GLuint view_loc = glGetUniformLocation(shader_get_program(ShaderKind_Light), "view");
+                glUniformMatrix4fv(view_loc, 1, GL_FALSE, view.data());
 
-            glBindVertexArray(light.vao);
-            glDrawArrays(GL_TRIANGLES, 0, UNIT_CUBE_NUM_VERTICES);
-            glBindVertexArray(0);
+                glBindVertexArray(lights[i].vao);
+                glDrawArrays(GL_TRIANGLES, 0, UNIT_CUBE_NUM_VERTICES);
+                glBindVertexArray(0);
+            }
         }
 
         glfwSwapBuffers(window);
