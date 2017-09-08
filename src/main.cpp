@@ -326,7 +326,7 @@ main(void)
 
             glUniform1i(glGetUniformLocation(shader_get_program(ShaderKind_Basic), "material.diffuse"), 0);
             glUniform1i(glGetUniformLocation(shader_get_program(ShaderKind_Basic), "material.specular"), 1);
-            glUniform1f(glGetUniformLocation(shader_get_program(ShaderKind_Basic), "material.shininess"), 64);
+            glUniform1f(glGetUniformLocation(shader_get_program(ShaderKind_Basic), "material.shininess"), 128);
 
             for (isize i = 0; i < 4; ++i)
             {
@@ -378,6 +378,8 @@ main(void)
                                                   ("point_lights[" + std::to_string(i) + "].quadratic").c_str());
                 glUniform3f(loc, 0.5f, 0.5f, 0.5f);
             }
+
+            glUniform1f(glGetUniformLocation(shader_get_program(ShaderKind_Basic), "material.shininess"), 32);
 
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, floor_texture_diffuse);
