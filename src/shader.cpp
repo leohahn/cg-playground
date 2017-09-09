@@ -2,63 +2,16 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string>
+#include <unordered_map>
 
 #include "glad/glad.h"
 
 #include "gl_resources.hpp"
-#include "lt_core.hpp"
 #include "lt_fs.hpp"
 #include "lt_utils.hpp"
-
-struct Shader
-{
-    GLuint program;
-#ifdef DEV_ENV
-    // This is used whenever the shader is recompiled, we have to reuse it again.
-    bool is_stale;
-#endif
-};
-
-lt_internal const char *shader_names[] =
-{
-#define SHADER_KIND(v, s) (const char*)s
-    SHADER_KINDS
-#undef SHADER_KIND
-};
+#include "gl_context.hpp"
 
 lt_internal lt::Logger logger("shader");
-// TODO: Try not to use hardcoded path.
-lt_internal Shader g_shaders[ShaderKind_Count] = {};
-lt_internal i32 g_current_shader_index = -1;
-lt_internal std::function<void(ShaderKind)> g_on_recompilation_handler = nullptr;
-
-void
-shader_set(ShaderKind kind)
-{
-    LT_Assert(kind != ShaderKind_Count);
-
-#ifdef DEV_ENV
-    bool should_reuse_shader = g_current_shader_index != kind || g_shaders[kind].is_stale == true;
-#else
-    bool should_reuse_shader = g_current_shader_index != kind;
-#endif
-    if (should_reuse_shader)
-    {
-        // logger.log("Using ", shader_names[kind], " shader");
-        glUseProgram(g_shaders[kind].program);
-#ifdef DEV_ENV
-        g_shaders[kind].is_stale = false;
-#endif
-        g_current_shader_index = kind;
-    }
-}
-
-void
-shader_on_recompilation(const std::function<void(ShaderKind)> &handler)
-{
-    LT_Assert(g_on_recompilation_handler == nullptr);
-    g_on_recompilation_handler = handler;
-}
 
 lt_internal GLuint
 make_program(const char* shader_name)
@@ -84,7 +37,8 @@ make_program(const char* shader_name)
     GLuint vertex_shader = glCreateShader(GL_VERTEX_SHADER);
     GLuint fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
 
-    if (vertex_shader == 0 || fragment_shader == 0) {
+    if (vertex_shader == 0 || fragment_shader == 0)
+    {
         fprintf(stderr, "Error creating shaders (glCreateShader)\n");
         file_free_contents(shader_src);
         glDeleteShader(vertex_shader);
@@ -157,47 +111,82 @@ error_cleanup:
     return 0;
 }
 
-GLuint shader_get_program(ShaderKind kind) { return g_shaders[kind].program; }
-
 void
-shader_recompile(ShaderKind kind)
+Shader::recompile()
 {
-    switch (kind)
-    {
-    case ShaderKind_Basic: {
-        logger.log("Recompiling Basic Shader");
-        GLuint old_program = g_shaders[kind].program;
-        GLuint new_program = make_program("basic.glsl");
+    logger.log("Recompiling ", name, " shader");
+    GLuint old_program = program;
+    GLuint new_program = make_program(name);
 
-        if (new_program == 0)
-            return;
+    if (new_program == 0)
+        return;
 
-        g_shaders[kind].program = new_program;
+    program = new_program;
 #ifdef DEV_ENV
-        // Set the shader as stale, so the next time someone calls shader_set, the shader is reused.
-        g_shaders[kind].is_stale = true;
+    // Set the shader as stale, so the next time someone calls shader_set, the shader is reused.
+    is_stale = true;
 #endif
-        glDeleteProgram(old_program);
-    } break;
+    glDeleteProgram(old_program);
 
-    default:
-        LT_Assert(false);
-    }
+    if (m_recompilation_handler)
+        m_recompilation_handler();
+}
 
-    if (g_on_recompilation_handler) g_on_recompilation_handler(kind);
+Shader::Shader(const char *name)
+    : name(name)
+{
+    program = make_program(name);
+    is_stale = false;
 }
 
 void
-shader_initialize(void)
+Shader::on_recompilation(const std::function<void()> &handler)
 {
-    Shader basic_shader;
-    basic_shader.program = make_program("basic.glsl");
-    basic_shader.is_stale = false;
+    LT_Assert(m_recompilation_handler == nullptr);
+    m_recompilation_handler = handler;
+}
 
-    Shader light_shader;
-    light_shader.program = make_program("light.glsl");
-    light_shader.is_stale = false;
+void
+Shader::setup_projection_matrix(f32 aspect_ratio, GLContext &context)
+{
+    const Mat4f projection = lt::perspective<f32>(60.0f, aspect_ratio, 0.1f, 100.0f);
 
-    g_shaders[ShaderKind_Basic] = basic_shader;
-    g_shaders[ShaderKind_Light] = light_shader;
+    context.use_shader(*this);
+    glUniformMatrix4fv(get_location("projection"), 1, GL_FALSE, projection.data());
+}
+
+void
+Shader::set3f(const char *name, Vec3f v)
+{
+    glUniform3f(get_location(name), v.x, v.y, v.z);
+}
+
+void
+Shader::set1i(const char *name, i32 i)
+{
+    glUniform1i(get_location(name), i);
+}
+
+void
+Shader::set1f(const char *name, f32 f)
+{
+    glUniform1f(get_location(name), f);
+}
+
+void
+Shader::set_matrix(const char *name, const Mat4f &m)
+{
+    glUniformMatrix4fv(get_location(name), 1, GL_FALSE, m.data());
+}
+
+GLuint
+Shader::get_location(const char *name)
+{
+    if (m_locations.find(name) == m_locations.end())
+    {
+        const GLuint location = glGetUniformLocation(program, name);
+        m_locations[std::string(name)] = location;
+    }
+
+    return m_locations.at(name);
 }

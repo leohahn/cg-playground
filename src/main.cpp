@@ -19,6 +19,7 @@
 #include "camera.hpp"
 #include "draw.hpp"
 #include "gl_resources.hpp"
+#include "gl_context.hpp"
 
 #include "stb_image.h"
 
@@ -51,7 +52,7 @@ process_input(GLFWwindow *win, bool *keyboard)
 }
 
 lt_internal void
-process_watcher_events()
+process_watcher_events(Shader &basic_shader, Shader &light_shader)
 {
     WatcherEvent *ev;
     while ((ev = watcher_peek_event()) != nullptr)
@@ -62,7 +63,8 @@ process_watcher_events()
         if (!is_dir && is_modified)
         {
             logger.log("File ", ev->name, " changed, requesting shader recompile.");
-            shader_recompile(ShaderKind_Basic);
+            if (ev->name == basic_shader.name) basic_shader.recompile();
+            if (ev->name == light_shader.name) light_shader.recompile();
         }
 
         // Notify the watcher that the event was consumed.
@@ -103,17 +105,6 @@ create_window_and_set_context(const char *title, i32 width, i32 height)
 }
 
 void
-setup_projection_matrices(f32 aspect_ratio)
-{
-    const Mat4f projection = lt::perspective<f32>(60.0f, aspect_ratio, 0.1f, 100.0f);
-    const GLuint projection_loc = glGetUniformLocation(shader_get_program(ShaderKind_Basic), "projection");
-    shader_set(ShaderKind_Basic);
-    glUniformMatrix4fv(projection_loc, 1, GL_FALSE, projection.data());
-    shader_set(ShaderKind_Light);
-    glUniformMatrix4fv(projection_loc, 1, GL_FALSE, projection.data());
-}
-
-void
 game_update(bool *keyboard, Camera& camera, f64 delta)
 {
     // Move
@@ -143,6 +134,27 @@ game_update(bool *keyboard, Camera& camera, f64 delta)
         camera.rotate(Camera::RotationAxis::Right, -delta);
 }
 
+struct TexturedCube
+{
+    Vec3f position;
+    Vec3f scaling;
+    u32   vao;
+    u32   diffuse_texture;
+    u32   specular_texture;
+    f32   shininess;
+
+    explicit TexturedCube(Vec3f position, Vec3f scaling, u32 diffuse_texture, u32 specular_texture, f32 shininess)
+        : position(position)
+        , scaling(scaling)
+        , vao(gl_resources_create_vao())
+        , diffuse_texture(diffuse_texture)
+        , specular_texture(specular_texture)
+        , shininess(shininess)
+    {
+        gl_resources_attrs_vertice_normal_texture(vao, BufferType::UnitCube);
+    }
+};
+
 struct PointLight
 {
     Vec3f position;
@@ -150,7 +162,7 @@ struct PointLight
     Vec3f color;
     u32   vao;
 
-    PointLight(Vec3f position, Vec3f scaling, Vec3f color)
+    explicit PointLight(Vec3f position, Vec3f scaling, Vec3f color)
         : position(position)
         , scaling(scaling)
         , color(color)
@@ -173,7 +185,7 @@ struct PointLight
  */
 
 void
-load_texture(const char *path, GLuint &texture)
+load_texture(const char *path, GLuint &texture, bool is_texture_in_srgb)
 {
     std::string fullpath = std::string(RESOURCES_PATH) + std::string(path);
     // Textures
@@ -194,7 +206,12 @@ load_texture(const char *path, GLuint &texture)
     {
         logger.log("Texture ", fullpath, " loaded successfuly.");
         logger.log("[", width, " x ", height, "] (num channels = ", num_channels, ")");
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image_data);
+
+        if (is_texture_in_srgb)
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB_ALPHA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image_data);
+        else
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image_data);
+
         glGenerateMipmap(GL_TEXTURE_2D);
     }
     else
@@ -227,14 +244,19 @@ main(void)
     pthread_create(&watcher_thread, nullptr, watcher_start, nullptr);
 #endif
 
-    shader_initialize();
-    shader_on_recompilation([ASPECT_RATIO](ShaderKind kind)
-    {
-        LT_Unused(kind);
-        setup_projection_matrices(ASPECT_RATIO);
+    gl_resources_initialize();
+
+    GLContext context;
+
+    Shader light_shader("light.glsl");
+    light_shader.on_recompilation([&](){
+        light_shader.setup_projection_matrix(ASPECT_RATIO, context);
     });
 
-    gl_resources_initialize();
+    Shader basic_shader("basic.glsl");
+    basic_shader.on_recompilation([&](){
+        basic_shader.setup_projection_matrix(ASPECT_RATIO, context);
+    });
 
     const f32 FIELD_OF_VIEW = 60.0f;
     const f32 MOVE_SPEED = 0.05f;
@@ -242,11 +264,17 @@ main(void)
     Camera camera(Vec3f(0.0f, 5.0f, 10.0f), Vec3f(0.0f, 0.0f, -1.0f), Vec3f(0.0f, 1.0f, 0.0f),
                   FIELD_OF_VIEW, ASPECT_RATIO, MOVE_SPEED, ROTATION_SPEED);
 
-    u32 cube_vao = gl_resources_create_vao();
-    gl_resources_attrs_vertice_normal_texture(cube_vao, BufferType::UnitCube);
+    GLuint box_texture_diffuse, box_texture_specular, floor_texture_diffuse;
+    load_texture("wooden-container.png", box_texture_diffuse, true);
+    load_texture("wooden-container-specular.png", box_texture_specular, true);
+    load_texture("stone.png", floor_texture_diffuse, true);
 
-    u32 floor_vao = gl_resources_create_vao();
-    gl_resources_attrs_vertice_normal_texture(floor_vao, BufferType::UnitPlane);
+    TexturedCube cubes[4] = {
+        TexturedCube(Vec3f(0.0f, 1.0f, 0.0f), Vec3f(1), box_texture_diffuse, box_texture_specular, 128),
+        TexturedCube(Vec3f(4.0f, 3.0f, 0.0f), Vec3f(1), box_texture_diffuse, box_texture_specular, 128),
+        TexturedCube(Vec3f(1.0f, 5.0f, 2.0f), Vec3f(1), box_texture_diffuse, box_texture_specular, 128),
+        TexturedCube(Vec3f(-5.0f, 2.0f, -1.0f), Vec3f(1), box_texture_diffuse, box_texture_specular, 128),
+    };
 
     PointLight lights[4] = {
         PointLight(Vec3f(3.0f, 5.0f, 0.0f), Vec3f(0.1f, 0.1f, 0.1f), Vec3f(1.0f, 1.0f, 1.0f)),
@@ -255,12 +283,11 @@ main(void)
         PointLight(Vec3f(3.0f, 4.0f, 2.0f), Vec3f(0.1f, 0.1f, 0.1f), Vec3f(1.0f, 1.0f, 1.0f)),
     };
 
-    GLuint box_texture_diffuse, box_texture_specular, floor_texture_diffuse;
-    load_texture("wooden-container.png", box_texture_diffuse);
-    load_texture("wooden-container-specular.png", box_texture_specular);
-    load_texture("stone.png", floor_texture_diffuse);
+    u32 floor_vao = gl_resources_create_vao();
+    gl_resources_attrs_vertice_normal_texture(floor_vao, BufferType::UnitPlane);
 
-    setup_projection_matrices(ASPECT_RATIO);
+    light_shader.setup_projection_matrix(ASPECT_RATIO, context);
+    basic_shader.setup_projection_matrix(ASPECT_RATIO, context);
 
     // Define variables to control time
     constexpr f64 DESIRED_FPS = 60.0;
@@ -284,7 +311,9 @@ main(void)
 
         // Process input and watcher events.
         process_input(window, keyboard);
-        process_watcher_events();
+#ifdef DEV_ENV
+        process_watcher_events(basic_shader, light_shader);
+#endif
 
         // Check if the window should close.
         if (glfwWindowShouldClose(window))
@@ -311,75 +340,57 @@ main(void)
             loops++;
         }
 
-        const Mat4f view = camera.view_matrix();
         // TODO: Eventually call a render function here.
         {
-            shader_set(ShaderKind_Basic);
+            context.use_shader(basic_shader);
 
-            Mat4f box_model(1.0f);
-            box_model = lt::translation(box_model, Vec3f(0.0f, 1.0f, 0.0f));
-            const GLuint model_loc = glGetUniformLocation(shader_get_program(ShaderKind_Basic), "model");
-            glUniformMatrix4fv(model_loc, 1, GL_FALSE, box_model.data());
-
-            const GLuint view_loc = glGetUniformLocation(shader_get_program(ShaderKind_Basic), "view");
-            glUniformMatrix4fv(view_loc, 1, GL_FALSE, view.data());
-
-            glUniform1i(glGetUniformLocation(shader_get_program(ShaderKind_Basic), "material.diffuse"), 0);
-            glUniform1i(glGetUniformLocation(shader_get_program(ShaderKind_Basic), "material.specular"), 1);
-            glUniform1f(glGetUniformLocation(shader_get_program(ShaderKind_Basic), "material.shininess"), 128);
+            basic_shader.set_matrix("view", camera.view_matrix());
+            basic_shader.set3f("view_position", camera.frustum.position);
+            basic_shader.set1i("material.diffuse", 0);
+            basic_shader.set1i("material.specular", 1);
 
             for (isize i = 0; i < 4; ++i)
             {
                 std::string i_str = std::to_string(i);
-                GLuint pos_loc = glGetUniformLocation(shader_get_program(ShaderKind_Basic),
-                                                      ("point_lights[" + i_str + "].position").c_str());
-                GLuint ambient_loc = glGetUniformLocation(shader_get_program(ShaderKind_Basic),
-                                                          ("point_lights[" + i_str + "].ambient").c_str());
-                GLuint diffuse_loc = glGetUniformLocation(shader_get_program(ShaderKind_Basic),
-                                                          ("point_lights[" + i_str + "].diffuse").c_str());
-                GLuint specular_loc = glGetUniformLocation(shader_get_program(ShaderKind_Basic),
-                                                           ("point_lights[" + i_str + "].specular").c_str());
-                GLuint constant_loc = glGetUniformLocation(shader_get_program(ShaderKind_Basic),
-                                                           ("point_lights[" + i_str + "].constant").c_str());
-                GLuint linear_loc = glGetUniformLocation(shader_get_program(ShaderKind_Basic),
-                                                         ("point_lights[" + i_str + "].linear").c_str());
-                GLuint quadratic_loc = glGetUniformLocation(shader_get_program(ShaderKind_Basic),
-                                                            ("point_lights[" + i_str + "].quadratic").c_str());
-
-                glUniform3f(pos_loc, lights[i].position.x, lights[i].position.y, lights[i].position.z);
-                glUniform3f(ambient_loc, 0.10f, 0.10f, 0.10f);
-                glUniform3f(diffuse_loc, 0.7f, 0.7f, 0.7f);
-                glUniform3f(specular_loc, 1.0f, 1.0f, 1.0f);
-                glUniform1f(constant_loc, 1.0f);
-                glUniform1f(linear_loc, 0.35f);
-                glUniform1f(quadratic_loc, 0.44f);
+                basic_shader.set3f(("point_lights["+i_str+"].position").c_str(), lights[i].position);
+                basic_shader.set3f(("point_lights["+i_str+"].ambient").c_str(), Vec3f(0.10f));
+                basic_shader.set3f(("point_lights["+i_str+"].diffuse").c_str(), Vec3f(0.7f));
+                basic_shader.set3f(("point_lights["+i_str+"].specular").c_str(), Vec3f(1.0f));
+                basic_shader.set1f(("point_lights["+i_str+"].constant").c_str(), 1.0f);
+                basic_shader.set1f(("point_lights["+i_str+"].linear").c_str(), 0.35f);
+                basic_shader.set1f(("point_lights["+i_str+"].quadratic").c_str(), 0.44f);
             }
-            glUniform3f(glGetUniformLocation(shader_get_program(ShaderKind_Basic), "view_position"),
-                        camera.frustum.position.x, camera.frustum.position.y, camera.frustum.position.z);
+            for (isize i = 0; i < 4; ++i)
+            {
+                // @Speed(leo): Too much texure binding.
+                glActiveTexture(GL_TEXTURE0);
+                glBindTexture(GL_TEXTURE_2D, cubes[i].diffuse_texture);
+                glActiveTexture(GL_TEXTURE1);
+                glBindTexture(GL_TEXTURE_2D, cubes[i].specular_texture);
 
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, box_texture_diffuse);
-            glActiveTexture(GL_TEXTURE1);
-            glBindTexture(GL_TEXTURE_2D, box_texture_specular);
+                Mat4f box_model(1.0f);
+                box_model = lt::scale(box_model, cubes[i].scaling);
+                box_model = lt::translation(box_model, cubes[i].position);
 
-            glBindVertexArray(cube_vao);
-            glDrawArrays(GL_TRIANGLES, 0, UNIT_CUBE_NUM_VERTICES);
-            glBindVertexArray(0);
+                basic_shader.set_matrix("model", box_model);
+                basic_shader.set1f("material.shininess", cubes[i].shininess);
+
+                context.bind_vao(cubes[i].vao);
+                glDrawArrays(GL_TRIANGLES, 0, UNIT_CUBE_NUM_VERTICES);
+            }
 
             // FLOOR
-
             Mat4f floor_model(1);
             floor_model = lt::scale(floor_model, Vec3f(20.0f));
-            glUniformMatrix4fv(model_loc, 1, GL_FALSE, floor_model.data());
+            basic_shader.set_matrix("model", floor_model);
 
             for (isize i = 0; i < 4; ++i)
             {
-                GLuint loc = glGetUniformLocation(shader_get_program(ShaderKind_Basic),
-                                                  ("point_lights[" + std::to_string(i) + "].quadratic").c_str());
-                glUniform3f(loc, 0.5f, 0.5f, 0.5f);
+                basic_shader.set3f(("point_lights[" + std::to_string(i) + "].quadratic").c_str(),
+                                   Vec3f(0.5f, 0.5f, 0.5f));
             }
 
-            glUniform1f(glGetUniformLocation(shader_get_program(ShaderKind_Basic), "material.shininess"), 32);
+            basic_shader.set1f("material.shininess", 32);
 
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, floor_texture_diffuse);
@@ -391,20 +402,17 @@ main(void)
             glBindVertexArray(0);
         }
         {
-            shader_set(ShaderKind_Light);
+            context.use_shader(light_shader);
 
             for (isize i = 0; i < 4; ++i)
             {
                 Mat4f model = lt::translation(Mat4f(1.0f), lights[i].position);
                 model = lt::scale(model, lights[i].scaling);
 
-                const GLuint model_loc = glGetUniformLocation(shader_get_program(ShaderKind_Light), "model");
-                glUniformMatrix4fv(model_loc, 1, GL_FALSE, model.data());
+                light_shader.set_matrix("model", model);
+                light_shader.set_matrix("view", camera.view_matrix());
 
-                const GLuint view_loc = glGetUniformLocation(shader_get_program(ShaderKind_Light), "view");
-                glUniformMatrix4fv(view_loc, 1, GL_FALSE, view.data());
-
-                glBindVertexArray(lights[i].vao);
+                context.bind_vao(lights[i].vao);
                 glDrawArrays(GL_TRIANGLES, 0, UNIT_CUBE_NUM_VERTICES);
                 glBindVertexArray(0);
             }

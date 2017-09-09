@@ -81,7 +81,7 @@ calc_point_light(PointLight light, vec3 normal)
     float dist = length(frag_to_light);
     float attenuation = 1.0 / (light.constant + light.linear*dist + light.quadratic*pow(dist, 2));
 
-    vec3 ambient = light.ambient * diffuse_color;
+    vec3 ambient = light.ambient * diffuse_color * vec3(0.04f);
 
     float diffuse_strength = max(0.0f, dot(frag_to_light, normal));
     vec3 diffuse = light.diffuse * diffuse_strength * diffuse_color;
@@ -106,6 +106,10 @@ main()
         light_contributions += calc_point_light(point_lights[i], normal);
 
     frag_color = vec4(light_contributions, 1.0f);
+
+    // Apply gamma correction
+    float gamma = 2.2;
+    frag_color.rgb = pow(frag_color.rgb, vec3(1.0/gamma));
 }
 
 #endif

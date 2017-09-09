@@ -25,11 +25,14 @@ void main()
  * ==================================== */
 #ifdef COMPILING_FRAGMENT
 
-out vec4 color;
+out vec4 frag_color;
 
 void main()
 {
-    color = vec4(1);
+    frag_color = vec4(1);
+
+    float gamma = 2.2;
+    frag_color.rgb = pow(frag_color.rgb, vec3(1.0/gamma));
 }
 
 #endif
