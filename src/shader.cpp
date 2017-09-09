@@ -122,10 +122,6 @@ Shader::recompile()
         return;
 
     program = new_program;
-#ifdef DEV_ENV
-    // Set the shader as stale, so the next time someone calls shader_set, the shader is reused.
-    is_stale = true;
-#endif
     glDeleteProgram(old_program);
 
     if (m_recompilation_handler)
@@ -136,7 +132,6 @@ Shader::Shader(const char *name)
     : name(name)
 {
     program = make_program(name);
-    is_stale = false;
 }
 
 void

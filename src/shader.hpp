@@ -14,10 +14,6 @@ struct Shader
     const char *name;
     GLuint program;
 
-#ifdef DEV_ENV
-    bool is_stale; // This is used whenever the shader is recompiled, we have to reuse it again.
-#endif
-
     explicit Shader(const char *name);
     void recompile();
     void on_recompilation(const std::function<void()> &handler);
