@@ -30,6 +30,12 @@ struct GLContext
             bound_vao = vao;
         }
     }
+
+    inline void
+    unbind_vao()
+    {
+        glBindVertexArray(0);
+    }
 };
 
 #endif // GL_CONTEXT_HPP

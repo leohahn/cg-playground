@@ -20,6 +20,7 @@
 #include "draw.hpp"
 #include "gl_resources.hpp"
 #include "gl_context.hpp"
+#include "mesh.hpp"
 
 #include "stb_image.h"
 
@@ -136,53 +137,35 @@ game_update(bool *keyboard, Camera& camera, f64 delta)
 
 struct TexturedCube
 {
-    Vec3f position;
-    Vec3f scaling;
-    u32   vao;
-    u32   diffuse_texture;
-    u32   specular_texture;
-    f32   shininess;
+    Vec3f      position;
+    Vec3f      scaling;
+    f32        shininess;
+    Mesh       mesh;
 
-    explicit TexturedCube(Vec3f position, Vec3f scaling, u32 diffuse_texture, u32 specular_texture, f32 shininess)
+    explicit TexturedCube(Vec3f position, Vec3f scaling, f32 shininess, u32 diffuse_texture, u32 specular_texture)
         : position(position)
         , scaling(scaling)
-        , vao(gl_resources_create_vao())
-        , diffuse_texture(diffuse_texture)
-        , specular_texture(specular_texture)
         , shininess(shininess)
+        , mesh(Mesh::static_unit_cube(diffuse_texture, specular_texture))
     {
-        gl_resources_attrs_vertice_normal_texture(vao, BufferType::UnitCube);
     }
 };
 
 struct PointLight
 {
-    Vec3f position;
-    Vec3f scaling;
-    Vec3f color;
-    u32   vao;
+    Vec3f     position;
+    Vec3f     scaling;
+    Vec3f     color;
+    Mesh      mesh;
 
-    explicit PointLight(Vec3f position, Vec3f scaling, Vec3f color)
+    explicit PointLight(Vec3f position, Vec3f scaling, Vec3f color, u32 diffuse_texture, u32 specular_texture)
         : position(position)
         , scaling(scaling)
         , color(color)
-        , vao(gl_resources_create_vao())
+        , mesh(Mesh::static_unit_cube(diffuse_texture, specular_texture))
     {
-        gl_resources_attrs_vertices(vao, BufferType::UnitCube);
     }
 };
-
-/*
- *  TODO:
- *    Learn:
- *      - Advanced lighting
- *      - Shadow maps
- *
- *    [1] Implement basic lighting
- *    [2] Implement shadow maps
- *    [3] Create code to load 3d models and render them with textures.
- *    [3] TODO
- */
 
 void
 load_texture(const char *path, GLuint &texture, bool is_texture_in_srgb)
@@ -208,9 +191,11 @@ load_texture(const char *path, GLuint &texture, bool is_texture_in_srgb)
         logger.log("[", width, " x ", height, "] (num channels = ", num_channels, ")");
 
         if (is_texture_in_srgb)
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB_ALPHA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image_data);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB_ALPHA, width, height,
+                         0, GL_RGBA, GL_UNSIGNED_BYTE, image_data);
         else
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image_data);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height,
+                         0, GL_RGBA, GL_UNSIGNED_BYTE, image_data);
 
         glGenerateMipmap(GL_TEXTURE_2D);
     }
@@ -244,7 +229,7 @@ main(void)
     pthread_create(&watcher_thread, nullptr, watcher_start, nullptr);
 #endif
 
-    gl_resources_initialize();
+    //GLResources::instance().initialize();
 
     GLContext context;
 
@@ -270,21 +255,20 @@ main(void)
     load_texture("stone.png", floor_texture_diffuse, true);
 
     TexturedCube cubes[4] = {
-        TexturedCube(Vec3f(0.0f, 1.0f, 0.0f), Vec3f(1), box_texture_diffuse, box_texture_specular, 128),
-        TexturedCube(Vec3f(4.0f, 3.0f, 0.0f), Vec3f(1), box_texture_diffuse, box_texture_specular, 128),
-        TexturedCube(Vec3f(1.0f, 5.0f, 2.0f), Vec3f(1), box_texture_diffuse, box_texture_specular, 128),
-        TexturedCube(Vec3f(-5.0f, 2.0f, -1.0f), Vec3f(1), box_texture_diffuse, box_texture_specular, 128),
+        TexturedCube(Vec3f(0.0f, 1.0f, 0.0f), Vec3f(1), 128, box_texture_diffuse, box_texture_specular),
+        TexturedCube(Vec3f(4.0f, 3.0f, 0.0f), Vec3f(1), 128, box_texture_diffuse, box_texture_specular),
+        TexturedCube(Vec3f(1.0f, 5.0f, 2.0f), Vec3f(1), 128, box_texture_diffuse, box_texture_specular),
+        TexturedCube(Vec3f(-5.0f, 2.0f, -1.0f), Vec3f(1), 128, box_texture_diffuse, box_texture_specular),
     };
 
     PointLight lights[4] = {
-        PointLight(Vec3f(3.0f, 5.0f, 0.0f), Vec3f(0.1f, 0.1f, 0.1f), Vec3f(1.0f, 1.0f, 1.0f)),
-        PointLight(Vec3f(7.0f, 2.0f, 0.0f), Vec3f(0.1f, 0.1f, 0.1f), Vec3f(1.0f, 1.0f, 1.0f)),
-        PointLight(Vec3f(0.0f, 3.0f, 0.0f), Vec3f(0.1f, 0.1f, 0.1f), Vec3f(1.0f, 1.0f, 1.0f)),
-        PointLight(Vec3f(3.0f, 4.0f, 2.0f), Vec3f(0.1f, 0.1f, 0.1f), Vec3f(1.0f, 1.0f, 1.0f)),
+        PointLight(Vec3f(3.0f, 5.0f, 0.0f), Vec3f(0.1f, 0.1f, 0.1f), Vec3f(1.0f, 1.0f, 1.0f), 0, 0),
+        PointLight(Vec3f(7.0f, 2.0f, 0.0f), Vec3f(0.1f, 0.1f, 0.1f), Vec3f(1.0f, 1.0f, 1.0f), 0, 0),
+        PointLight(Vec3f(0.0f, 3.0f, 0.0f), Vec3f(0.1f, 0.1f, 0.1f), Vec3f(1.0f, 1.0f, 1.0f), 0, 0),
+        PointLight(Vec3f(3.0f, 4.0f, 2.0f), Vec3f(0.1f, 0.1f, 0.1f), Vec3f(1.0f, 1.0f, 1.0f), 0, 0),
     };
 
-    u32 floor_vao = gl_resources_create_vao();
-    gl_resources_attrs_vertice_normal_texture(floor_vao, BufferType::UnitPlane);
+    Mesh floor_mesh = Mesh::static_unit_plane(floor_texture_diffuse, floor_texture_diffuse);
 
     light_shader.setup_projection_matrix(ASPECT_RATIO, context);
     basic_shader.setup_projection_matrix(ASPECT_RATIO, context);
@@ -346,8 +330,6 @@ main(void)
 
             basic_shader.set_matrix("view", camera.view_matrix());
             basic_shader.set3f("view_position", camera.frustum.position);
-            basic_shader.set1i("material.diffuse", 0);
-            basic_shader.set1i("material.specular", 1);
 
             for (isize i = 0; i < 4; ++i)
             {
@@ -362,12 +344,6 @@ main(void)
             }
             for (isize i = 0; i < 4; ++i)
             {
-                // @Speed(leo): Too much texure binding.
-                glActiveTexture(GL_TEXTURE0);
-                glBindTexture(GL_TEXTURE_2D, cubes[i].diffuse_texture);
-                glActiveTexture(GL_TEXTURE1);
-                glBindTexture(GL_TEXTURE_2D, cubes[i].specular_texture);
-
                 Mat4f box_model(1.0f);
                 box_model = lt::scale(box_model, cubes[i].scaling);
                 box_model = lt::translation(box_model, cubes[i].position);
@@ -375,8 +351,7 @@ main(void)
                 basic_shader.set_matrix("model", box_model);
                 basic_shader.set1f("material.shininess", cubes[i].shininess);
 
-                context.bind_vao(cubes[i].vao);
-                glDrawArrays(GL_TRIANGLES, 0, UNIT_CUBE_NUM_VERTICES);
+                draw_mesh(cubes[i].mesh, basic_shader, context);
             }
 
             // FLOOR
@@ -385,21 +360,12 @@ main(void)
             basic_shader.set_matrix("model", floor_model);
 
             for (isize i = 0; i < 4; ++i)
-            {
                 basic_shader.set3f(("point_lights[" + std::to_string(i) + "].quadratic").c_str(),
                                    Vec3f(0.5f, 0.5f, 0.5f));
-            }
 
             basic_shader.set1f("material.shininess", 32);
 
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, floor_texture_diffuse);
-            glActiveTexture(GL_TEXTURE1);
-            glBindTexture(GL_TEXTURE_2D, floor_texture_diffuse);
-
-            glBindVertexArray(floor_vao);
-            glDrawArrays(GL_TRIANGLES, 0, UNIT_PLANE_NUM_VERTICES);
-            glBindVertexArray(0);
+            draw_mesh(floor_mesh, basic_shader, context);
         }
         {
             context.use_shader(light_shader);
@@ -412,9 +378,7 @@ main(void)
                 light_shader.set_matrix("model", model);
                 light_shader.set_matrix("view", camera.view_matrix());
 
-                context.bind_vao(lights[i].vao);
-                glDrawArrays(GL_TRIANGLES, 0, UNIT_CUBE_NUM_VERTICES);
-                glBindVertexArray(0);
+                draw_mesh(lights[i].mesh, light_shader, context);
             }
         }
 

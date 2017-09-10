@@ -24,7 +24,8 @@ make_program(const char* shader_name)
 
     LT_Assert(shader_src != nullptr);
 
-    if (shader_src->error != FileError_None) {
+    if (shader_src->error != FileError_None)
+    {
         fprintf(stderr, "Error reading shader source from %s\n", shader_src_path.c_str());
         file_free_contents(shader_src);
         return 0;

@@ -3,8 +3,10 @@
 
 #include "lt_core.hpp"
 
-struct TileMap;
+struct Mesh;
+struct Shader;
+struct GLContext;
 
-void draw_cubes(const TileMap &tile_map);
+void draw_mesh(const Mesh& mesh, Shader& shader, GLContext& context);
 
 #endif // DRAW_HPP

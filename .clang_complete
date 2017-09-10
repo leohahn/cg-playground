@@ -1,3 +1,4 @@
 -I./lt/src
 -I./src
 -DDEV_ENV
+-std=c++14

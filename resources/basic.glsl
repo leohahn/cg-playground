@@ -41,8 +41,6 @@ in vec3 frag_world_pos;
 
 out vec4 frag_color;
 
-uniform sampler2D box_texture;
-
 #define NUM_POINT_LIGHTS 4
 
 struct PointLight
@@ -59,9 +57,9 @@ struct PointLight
 
 struct Material
 {
-    sampler2D  diffuse;
-    sampler2D  specular;
     float      shininess;
+    sampler2D  texture_diffuse1;
+    sampler2D  texture_specular1;
 };
 
 uniform vec3 view_position;
@@ -71,8 +69,8 @@ uniform Material material;
 vec3
 calc_point_light(PointLight light, vec3 normal)
 {
-    vec3 diffuse_color = vec3(texture(material.diffuse, frag_tex_coord));
-    vec3 specular_color = vec3(texture(material.specular, frag_tex_coord));
+    vec3 diffuse_color = vec3(texture(material.texture_diffuse1, frag_tex_coord));
+    vec3 specular_color = vec3(texture(material.texture_specular1, frag_tex_coord));
 
     vec3 frag_to_light = normalize(light.position - frag_world_pos);
     vec3 frag_to_view = normalize(view_position - frag_world_pos);
@@ -87,7 +85,7 @@ calc_point_light(PointLight light, vec3 normal)
     vec3 diffuse = light.diffuse * diffuse_strength * diffuse_color;
 
     float specular_strength = pow(max(0.0f, dot(halfway_dir, normal)), material.shininess);
-    vec3 specular = light.specular * specular_strength * specular_color;
+    vec3 specular = light.specular * (specular_strength * specular_color);
 
     ambient *= attenuation;
     diffuse *= attenuation;
@@ -102,7 +100,7 @@ main()
     vec3 normal = normalize(frag_normal);
     vec3 light_contributions = vec3(0);
 
-    for (int i = 0; i < NUM_POINT_LIGHTS; ++i)
+    for (int i = 0; i < 4; ++i)
         light_contributions += calc_point_light(point_lights[i], normal);
 
     frag_color = vec4(light_contributions, 1.0f);
