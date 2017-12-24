@@ -6,7 +6,7 @@
 #include "mesh.hpp"
 
 #ifndef RESOURCES_PATH
-#define RESOURCES_PATH "/home/lhahn/dev/cpp/rigid-body-simulation/resources/"
+#define RESOURCES_PATH "/home/lhahn/dev/cpp/cg-playground/resources/"
 #endif
 
 enum class BufferType
