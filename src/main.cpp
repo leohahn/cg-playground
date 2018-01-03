@@ -179,11 +179,12 @@ enum PixelFormat
 	PixelFormat_RGBA = GL_RGBA,
 };
 
-void
-load_texture(const char *path, GLuint &texture, TextureFormat texture_format, PixelFormat pixel_format)
+GLuint
+load_texture(const char *path, TextureFormat texture_format, PixelFormat pixel_format)
 {
     std::string fullpath = std::string(RESOURCES_PATH) + std::string(path);
     // Textures
+	GLuint texture;
     glGenTextures(1, &texture);
     glBindTexture(GL_TEXTURE_2D, texture);
     // Wrapping and filtering
@@ -215,6 +216,7 @@ load_texture(const char *path, GLuint &texture, TextureFormat texture_format, Pi
     }
     // Free image
     stbi_image_free(image_data);
+	return texture;
 }
 
 int
@@ -259,11 +261,11 @@ main(void)
     Camera camera(Vec3f(0.0f, 5.0f, 10.0f), Vec3f(0.0f, 0.0f, -1.0f), Vec3f(0.0f, 1.0f, 0.0f),
                   FIELD_OF_VIEW, ASPECT_RATIO, MOVE_SPEED, ROTATION_SPEED);
 
-    GLuint box_texture_diffuse, box_texture_specular, floor_texture_diffuse;
-    load_texture("wooden-container.png", box_texture_diffuse, TextureFormat_SRGBA, PixelFormat_RGBA);
-    load_texture("wooden-container-specular.png", box_texture_specular, TextureFormat_SRGBA, PixelFormat_RGBA);
+    GLuint box_texture_diffuse = load_texture("wooden-container.png", TextureFormat_SRGBA, PixelFormat_RGBA);
+    GLuint box_texture_specular = load_texture("wooden-container-specular.png", TextureFormat_SRGBA,
+											   PixelFormat_RGBA);
     // load_texture("Brick/Brick1/1024/Brick-Diffuse.tga", floor_texture_diffuse, true);
-    load_texture("tile.jpg", floor_texture_diffuse, TextureFormat_SRGB, PixelFormat_RGB);
+    GLuint floor_texture_diffuse = load_texture("tile.jpg", TextureFormat_SRGB, PixelFormat_RGB);
 
     TexturedCube cubes[4] = {
         TexturedCube(Vec3f(0.0f, 1.0f, 0.0f), Vec3f(1), 128, box_texture_diffuse, box_texture_specular),
@@ -285,15 +287,13 @@ main(void)
     basic_shader.setup_projection_matrix(ASPECT_RATIO, context);
 
     // Define variables to control time
-    constexpr f64 DESIRED_FPS = 60.0;
-    constexpr f64 DESIRED_FRAMETIME = 1.0 / DESIRED_FPS;
-    constexpr u32 MAX_STEPS = 6;
-    constexpr f64 MAX_DELTA_TIME = 1.0;
+    const f64 DESIRED_FPS = 60.0;
+    const f64 DESIRED_FRAMETIME = 1.0 / DESIRED_FPS;
+    const u32 MAX_STEPS = 6;
+    const f64 MAX_DELTA_TIME = 1.0;
 
     f64 new_time, total_delta, delta, frame_time;
     f64 previous_time = glfwGetTime();
-    f32 fps;
-    u32 loops;
 
     bool running = true;
     while (running)
@@ -302,7 +302,7 @@ main(void)
         new_time = glfwGetTime();
         frame_time = new_time - previous_time;
         previous_time = new_time;
-        fps = 1 / frame_time; // used for logging
+        f32 fps = 1 / frame_time; // used for logging
 
         // Process input and watcher events.
         process_input(window, keyboard);
@@ -324,7 +324,7 @@ main(void)
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         total_delta = frame_time / DESIRED_FRAMETIME;
-        loops = 0;
+        u32 loops = 0;
         while (total_delta > 0.0 && loops < MAX_STEPS)
         {
             delta = std::min(total_delta, MAX_DELTA_TIME);
@@ -400,7 +400,6 @@ main(void)
 #ifdef DEV_ENV
     pthread_join(watcher_thread, nullptr);
 #endif
-
     glfwDestroyWindow(window);
     glfwTerminate();
 }
