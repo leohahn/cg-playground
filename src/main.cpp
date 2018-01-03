@@ -83,7 +83,7 @@ create_window_and_set_context(const char *title, i32 width, i32 height)
 
     GLFWwindow *window = glfwCreateWindow(width, height, title, nullptr, nullptr);
 
-    if (window == nullptr)
+    if (!window)
     {
         glfwTerminate();
         LT_Fail("Failed to create glfw window.\n");
@@ -147,8 +147,7 @@ struct TexturedCube
         , scaling(scaling)
         , shininess(shininess)
         , mesh(Mesh::static_unit_cube(diffuse_texture, specular_texture))
-    {
-    }
+    {}
 };
 
 struct PointLight
@@ -163,12 +162,25 @@ struct PointLight
         , scaling(scaling)
         , color(color)
         , mesh(Mesh::static_unit_cube(diffuse_texture, specular_texture))
-    {
-    }
+    {}
+};
+
+enum TextureFormat
+{
+	TextureFormat_RGB = GL_RGB8,
+	TextureFormat_RGBA = GL_RGBA,
+	TextureFormat_SRGB = GL_SRGB8,
+	TextureFormat_SRGBA = GL_SRGB_ALPHA,
+};
+
+enum PixelFormat
+{
+	PixelFormat_RGB = GL_RGB,
+	PixelFormat_RGBA = GL_RGBA,
 };
 
 void
-load_texture(const char *path, GLuint &texture, bool is_texture_in_srgb)
+load_texture(const char *path, GLuint &texture, TextureFormat texture_format, PixelFormat pixel_format)
 {
     std::string fullpath = std::string(RESOURCES_PATH) + std::string(path);
     // Textures
@@ -184,18 +196,16 @@ load_texture(const char *path, GLuint &texture, bool is_texture_in_srgb)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     i32 width, height, num_channels;
+	// logger.log("Trying to load ", fullpath);
     uchar *image_data = stbi_load(fullpath.c_str(), &width, &height, &num_channels, 0);
     if (image_data)
     {
         logger.log("Texture ", fullpath, " loaded successfuly.");
         logger.log("[", width, " x ", height, "] (num channels = ", num_channels, ")");
 
-        if (is_texture_in_srgb)
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB_ALPHA, width, height,
-                         0, GL_RGBA, GL_UNSIGNED_BYTE, image_data);
-        else
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height,
-                         0, GL_RGBA, GL_UNSIGNED_BYTE, image_data);
+		const i32 mipmap_level = 0;
+        glTexImage2D(GL_TEXTURE_2D, mipmap_level, texture_format, width, height,
+					 0, pixel_format, GL_UNSIGNED_BYTE, image_data);
 
         glGenerateMipmap(GL_TEXTURE_2D);
     }
@@ -234,12 +244,12 @@ main(void)
     GLContext context;
 
     Shader light_shader("light.glsl");
-    light_shader.on_recompilation([&](){
+    light_shader.on_recompilation([&] {
         light_shader.setup_projection_matrix(ASPECT_RATIO, context);
     });
 
     Shader basic_shader("basic.glsl");
-    basic_shader.on_recompilation([&](){
+    basic_shader.on_recompilation([&] {
         basic_shader.setup_projection_matrix(ASPECT_RATIO, context);
     });
 
@@ -250,9 +260,10 @@ main(void)
                   FIELD_OF_VIEW, ASPECT_RATIO, MOVE_SPEED, ROTATION_SPEED);
 
     GLuint box_texture_diffuse, box_texture_specular, floor_texture_diffuse;
-    load_texture("wooden-container.png", box_texture_diffuse, true);
-    load_texture("wooden-container-specular.png", box_texture_specular, true);
-    load_texture("stone.png", floor_texture_diffuse, true);
+    load_texture("wooden-container.png", box_texture_diffuse, TextureFormat_SRGBA, PixelFormat_RGBA);
+    load_texture("wooden-container-specular.png", box_texture_specular, TextureFormat_SRGBA, PixelFormat_RGBA);
+    // load_texture("Brick/Brick1/1024/Brick-Diffuse.tga", floor_texture_diffuse, true);
+    load_texture("tile.jpg", floor_texture_diffuse, TextureFormat_SRGB, PixelFormat_RGB);
 
     TexturedCube cubes[4] = {
         TexturedCube(Vec3f(0.0f, 1.0f, 0.0f), Vec3f(1), 128, box_texture_diffuse, box_texture_specular),

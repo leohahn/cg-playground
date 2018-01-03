@@ -1,3 +1,5 @@
 /build/
 *.jpg
 *.png
+/.dir-locals.el
+/cg-playground.creator.user
