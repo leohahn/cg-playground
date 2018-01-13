@@ -1,7 +1,10 @@
 #include "mesh.hpp"
 #include <cstring>
+#include "lt/src/lt_utils.hpp"
 
 #include "glad/glad.h"
+
+lt_internal lt::Logger logger("mesh");
 
 lt_internal const Vec3f UNIT_CUBE_VERTICES[24] =
 {
@@ -91,7 +94,7 @@ lt_internal const u32 UNIT_PLANE_INDICES[] =
     0, 1, 2, 2, 3, 0
 };
 
-void
+lt_internal void
 setup_mesh_buffers(Mesh &m)
 {
     glGenVertexArrays(1, &m.vao);
@@ -117,6 +120,28 @@ setup_mesh_buffers(Mesh &m)
     glEnableVertexAttribArray(2);
 
     glBindVertexArray(0);
+}
+
+lt_internal void
+calc_tangent_bitangent(Vec3f pos1, Vec3f pos2, Vec3f pos3, Vec2f uv1, Vec2f uv2, Vec2f uv3,
+					   Vec3f &tangent, Vec3f &bitangent)
+{
+	const Vec3f edge1 = pos2 - pos1;
+	const Vec3f edge2 = pos3 - pos1;
+	const Vec2f delta_uv1 = uv2 - uv1;
+	const Vec2f delta_uv2 = uv3 - uv1;
+
+	const f32 f = 1.0f / (delta_uv1.x*delta_uv2.y - delta_uv2.x*delta_uv1.y);
+
+	tangent.x = f * (delta_uv2.y * edge1.x - delta_uv1.y * edge2.x);
+	tangent.y = f * (delta_uv2.y * edge1.y - delta_uv1.y * edge2.y);
+	tangent.z = f * (delta_uv2.y * edge1.z - delta_uv1.y * edge2.z);
+	tangent = lt::normalize(tangent);
+
+	bitangent.x = f * (-delta_uv2.x * edge1.x + delta_uv1.x * edge2.x);
+	bitangent.y = f * (-delta_uv2.x * edge1.y + delta_uv1.x * edge2.y);
+	bitangent.z = f * (-delta_uv2.x * edge1.z + delta_uv1.x * edge2.z);
+	bitangent = lt::normalize(bitangent);  
 }
 
 Mesh
@@ -145,14 +170,48 @@ Mesh::static_unit_cube(u32 diffuse_texture, u32 specular_texture, u32 normal_tex
 		face.val[0] = UNIT_CUBE_INDICES[i];
 		face.val[1] = UNIT_CUBE_INDICES[i+1];
 		face.val[2] = UNIT_CUBE_INDICES[i+2];
-		// create the normal from the edges of the face
+		// Create the normal from the edges of the face
 		Vec3f normal = lt::cross(mesh.vertexes[face.val[1]].position - mesh.vertexes[face.val[0]].position,
 								mesh.vertexes[face.val[2]].position - mesh.vertexes[face.val[0]].position);
 		normal = lt::normalize(normal);
+
 		// Update the normals on the vertices
+		LT_Assert(mesh.vertexes[face.val[0]].normal == Vec3f(0, 0, 0));
+		LT_Assert(mesh.vertexes[face.val[1]].normal == Vec3f(0, 0, 0));
+		LT_Assert(mesh.vertexes[face.val[2]].normal == Vec3f(0, 0, 0));
+
 		mesh.vertexes[face.val[0]].normal = normal;
 		mesh.vertexes[face.val[1]].normal = normal;
 		mesh.vertexes[face.val[2]].normal = normal;
+
+		// Calculate tangent and bitangent
+		{
+			// positions
+			const Vec3f pos1 = mesh.vertexes[face.val[0]].position;
+			const Vec3f pos2 = mesh.vertexes[face.val[1]].position;
+			const Vec3f pos3 = mesh.vertexes[face.val[2]].position;
+			// texture-coords
+			const Vec2f uv1 = mesh.vertexes[face.val[0]].tex_coords;
+			const Vec2f uv2 = mesh.vertexes[face.val[1]].tex_coords;
+			const Vec2f uv3 = mesh.vertexes[face.val[2]].tex_coords;
+
+			Vec3f tangent, bitangent;
+			calc_tangent_bitangent(pos1, pos2, pos3, uv1, uv2, uv3, tangent, bitangent);
+
+			LT_Assert(mesh.vertexes[face.val[0]].tangent == Vec3f(0, 0, 0));
+			LT_Assert(mesh.vertexes[face.val[1]].tangent == Vec3f(0, 0, 0));
+			LT_Assert(mesh.vertexes[face.val[2]].tangent == Vec3f(0, 0, 0));
+			mesh.vertexes[face.val[0]].tangent = tangent;
+			mesh.vertexes[face.val[1]].tangent = tangent;
+			mesh.vertexes[face.val[2]].tangent = tangent;
+
+			LT_Assert(mesh.vertexes[face.val[0]].bitangent == Vec3f(0, 0, 0));
+			LT_Assert(mesh.vertexes[face.val[1]].bitangent == Vec3f(0, 0, 0));
+			LT_Assert(mesh.vertexes[face.val[2]].bitangent == Vec3f(0, 0, 0));
+			mesh.vertexes[face.val[0]].bitangent = bitangent;
+			mesh.vertexes[face.val[1]].bitangent = bitangent;
+			mesh.vertexes[face.val[2]].bitangent = bitangent;
+		}
 
 		mesh.faces.push_back(face);
 		mesh.faces_normal.push_back(normal);
@@ -195,6 +254,10 @@ Mesh::static_unit_plane(f32 tex_coords_scale, u32 diffuse_texture,
 		normal = lt::normalize(normal);
 
 		// Update the normals on the vertices
+		LT_Assert(mesh.vertexes[face.val[0]].normal == Vec3f(0, 0, 0));
+		LT_Assert(mesh.vertexes[face.val[1]].normal == Vec3f(0, 0, 0));
+		LT_Assert(mesh.vertexes[face.val[2]].normal == Vec3f(0, 0, 0));
+
 		mesh.vertexes[face.val[0]].normal = normal;
 		mesh.vertexes[face.val[1]].normal = normal;
 		mesh.vertexes[face.val[2]].normal = normal;

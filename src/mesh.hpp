@@ -13,9 +13,11 @@ struct Vertex
     Vec3f position;
     Vec2f tex_coords;
     Vec3f normal;
-	Vec2f tangent;
-	Vec2f bitangent;
+	Vec3f tangent;
+	Vec3f bitangent;
 };
+
+static_assert(sizeof(Vertex) == sizeof(f32) * 14, "Vertex should be packed.");
 
 struct Texture
 {
