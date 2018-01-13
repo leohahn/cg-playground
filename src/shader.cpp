@@ -145,7 +145,7 @@ Shader::on_recompilation(const std::function<void()> &handler)
 void
 Shader::setup_projection_matrix(f32 aspect_ratio, GLContext &context)
 {
-    const Mat4f projection = lt::perspective<f32>(60.0f, aspect_ratio, 0.1f, 100.0f);
+    const Mat4f projection = lt::perspective(60.0f, aspect_ratio, 0.1f, 100.0f);
 
     context.use_shader(*this);
     glUniformMatrix4fv(get_location("projection"), 1, GL_FALSE, projection.data());

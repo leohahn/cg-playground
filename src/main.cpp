@@ -24,7 +24,7 @@
 
 #include "stb_image.h"
 
-lt_internal lt::Logger logger("main");
+lt_global_variable lt::Logger logger("main");
 
 lt_internal void
 framebuffer_size_callback(GLFWwindow *w, i32 width, i32 height)
@@ -142,11 +142,12 @@ struct TexturedCube
     f32        shininess;
     Mesh       mesh;
 
-    explicit TexturedCube(Vec3f position, Vec3f scaling, f32 shininess, u32 diffuse_texture, u32 specular_texture)
+    explicit TexturedCube(Vec3f position, Vec3f scaling, f32 shininess,
+						  u32 diffuse_texture, u32 specular_texture, u32 normal_texture = 0)
         : position(position)
         , scaling(scaling)
         , shininess(shininess)
-        , mesh(Mesh::static_unit_cube(diffuse_texture, specular_texture))
+        , mesh(Mesh::static_unit_cube(diffuse_texture, specular_texture, normal_texture))
     {}
 };
 
@@ -202,17 +203,19 @@ load_texture(const char *path, TextureFormat texture_format, PixelFormat pixel_f
     if (image_data)
     {
         logger.log("Texture ", fullpath, " loaded successfuly.");
-        logger.log("[", width, " x ", height, "] (num channels = ", num_channels, ")");
+        logger.log("    [", width, " x ", height, "] (num channels = ", num_channels, ")");
 
 		const i32 mipmap_level = 0;
         glTexImage2D(GL_TEXTURE_2D, mipmap_level, texture_format, width, height,
 					 0, pixel_format, GL_UNSIGNED_BYTE, image_data);
 
         glGenerateMipmap(GL_TEXTURE_2D);
+
+        logger.log("    OpenGL read texture successfully.");
     }
     else
     {
-        logger.error("Failed loading texture");
+        logger.error("    Failed loading texture");
     }
     // Free image
     stbi_image_free(image_data);
@@ -233,7 +236,7 @@ main(void)
     logger.log("Initializing glfw");
     glfwInit();
 
-    GLFWwindow *window = create_window_and_set_context("Hot Shader Loader", WINDOW_WIDTH, WINDOW_HEIGHT);
+    GLFWwindow *window = create_window_and_set_context("CG playground", WINDOW_WIDTH, WINDOW_HEIGHT);
 
 #ifdef DEV_ENV
     pthread_t watcher_thread;
@@ -261,17 +264,30 @@ main(void)
     Camera camera(Vec3f(0.0f, 5.0f, 10.0f), Vec3f(0.0f, 0.0f, -1.0f), Vec3f(0.0f, 1.0f, 0.0f),
                   FIELD_OF_VIEW, ASPECT_RATIO, MOVE_SPEED, ROTATION_SPEED);
 
-    GLuint box_texture_diffuse = load_texture("wooden-container.png", TextureFormat_SRGBA, PixelFormat_RGBA);
-    GLuint box_texture_specular = load_texture("wooden-container-specular.png", TextureFormat_SRGBA,
+    GLuint box_texture_diffuse = load_texture("wooden-container_d.png", TextureFormat_SRGBA, PixelFormat_RGBA);
+    GLuint box_texture_specular = load_texture("wooden-container_s.png", TextureFormat_RGBA,
 											   PixelFormat_RGBA);
+    GLuint box_texture_normal = load_texture("wooden-container_s.png", TextureFormat_RGBA,
+											 PixelFormat_RGBA);
+
     // load_texture("Brick/Brick1/1024/Brick-Diffuse.tga", floor_texture_diffuse, true);
     GLuint floor_texture_diffuse = load_texture("tile.jpg", TextureFormat_SRGB, PixelFormat_RGB);
 
+	// Wall textures
+    GLuint wall_texture_diffuse = load_texture("brickwall.jpg", TextureFormat_SRGB,
+											   PixelFormat_RGB);
+    GLuint wall_texture_normal = load_texture("brickwall_normal.jpg", TextureFormat_RGB,
+											  PixelFormat_RGB);
+
     TexturedCube cubes[4] = {
-        TexturedCube(Vec3f(0.0f, 1.0f, 0.0f), Vec3f(1), 128, box_texture_diffuse, box_texture_specular),
-        TexturedCube(Vec3f(4.0f, 3.0f, 0.0f), Vec3f(1), 128, box_texture_diffuse, box_texture_specular),
-        TexturedCube(Vec3f(1.0f, 5.0f, 2.0f), Vec3f(1), 128, box_texture_diffuse, box_texture_specular),
-        TexturedCube(Vec3f(-5.0f, 2.0f, -1.0f), Vec3f(1), 128, box_texture_diffuse, box_texture_specular),
+        TexturedCube(Vec3f(0.0f, 1.0f, 0.0f), Vec3f(1), 128,
+					 box_texture_diffuse, box_texture_specular, box_texture_normal),
+        TexturedCube(Vec3f(4.0f, 3.0f, 0.0f), Vec3f(1), 128,
+					 box_texture_diffuse, box_texture_specular, box_texture_normal),
+        TexturedCube(Vec3f(1.0f, 5.0f, 2.0f), Vec3f(1), 128,
+					 box_texture_diffuse, box_texture_specular, box_texture_normal),
+        TexturedCube(Vec3f(-5.0f, 2.0f, -1.0f), Vec3f(1), 128,
+					 box_texture_diffuse, box_texture_specular, box_texture_normal),
     };
 
     PointLight lights[4] = {
@@ -281,7 +297,9 @@ main(void)
         PointLight(Vec3f(3.0f, 4.0f, 2.0f), Vec3f(0.1f, 0.1f, 0.1f), Vec3f(1.0f, 1.0f, 1.0f), 0, 0),
     };
 
-    Mesh floor_mesh = Mesh::static_unit_plane(floor_texture_diffuse, floor_texture_diffuse);
+    Mesh floor_mesh = Mesh::static_unit_plane(10.0f, floor_texture_diffuse, floor_texture_diffuse);
+    Mesh wall_mesh = Mesh::static_unit_plane(5.0f, wall_texture_diffuse,
+											 wall_texture_diffuse, wall_texture_normal);
 
     light_shader.setup_projection_matrix(ASPECT_RATIO, context);
     basic_shader.setup_projection_matrix(ASPECT_RATIO, context);
@@ -370,18 +388,33 @@ main(void)
             floor_model = lt::scale(floor_model, Vec3f(20.0f));
             basic_shader.set_matrix("model", floor_model);
 
-            for (isize i = 0; i < 4; ++i)
-                basic_shader.set3f(("point_lights[" + std::to_string(i) + "].quadratic").c_str(),
-                                   Vec3f(0.5f, 0.5f, 0.5f));
+            // for (isize i = 0; i < 4; ++i)
+            //     basic_shader.set3f(("point_lights[" + std::to_string(i) + "].quadratic").c_str(),
+            //                        Vec3f(0.5f, 0.5f, 0.5f));
 
             basic_shader.set1f("material.shininess", 32);
 
             draw_mesh(floor_mesh, basic_shader, context);
+
+            // WALL
+            Mat4f wall_model(1);
+            wall_model = lt::translation(wall_model, Vec3f(-3, 0, 0));
+            wall_model = lt::rotation_y(wall_model, 90.0f);
+            wall_model = lt::rotation_x(wall_model, 90.0f);
+            wall_model = lt::scale(wall_model, Vec3f(8.0f));
+            basic_shader.set_matrix("model", wall_model);
+
+            // for (isize i = 0; i < 4; ++i)
+            //     basic_shader.set3f(("point_lights[" + std::to_string(i) + "].quadratic").c_str(),
+            //                        Vec3f(0.5f, 0.5f, 0.5f));
+            basic_shader.set1f("material.shininess", 64);
+
+            draw_mesh(wall_mesh, basic_shader, context);
         }
         {
             context.use_shader(light_shader);
 
-            for (isize i = 0; i < 4; ++i)
+            for (isize i = 0; i < 1; ++i)
             {
                 Mat4f model = lt::translation(Mat4f(1.0f), lights[i].position);
                 model = lt::scale(model, lights[i].scaling);

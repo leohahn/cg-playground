@@ -26,7 +26,7 @@ Camera::Camera(Vec3f position, Vec3f front_vec, Vec3f up_world,
     frustum.fovy = fovy;
     frustum.znear = ZNEAR;
     frustum.zfar = ZFAR;
-    frustum.projection = lt::perspective<f32>(lt::radians(fovy), ratio, ZNEAR, ZFAR);
+    frustum.projection = lt::perspective(lt::radians(fovy), ratio, ZNEAR, ZFAR);
 
     update_frustum_right_and_up(frustum, up_world);
 }
