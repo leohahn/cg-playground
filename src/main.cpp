@@ -264,11 +264,14 @@ main(void)
     Camera camera(Vec3f(0.0f, 5.0f, 10.0f), Vec3f(0.0f, 0.0f, -1.0f), Vec3f(0.0f, 1.0f, 0.0f),
                   FIELD_OF_VIEW, ASPECT_RATIO, MOVE_SPEED, ROTATION_SPEED);
 
-    GLuint box_texture_diffuse = load_texture("wooden-container_d.png", TextureFormat_SRGBA, PixelFormat_RGBA);
-    GLuint box_texture_specular = load_texture("wooden-container_s.png", TextureFormat_RGBA,
-											   PixelFormat_RGBA);
-    GLuint box_texture_normal = load_texture("wooden-container_s.png", TextureFormat_RGBA,
-											 PixelFormat_RGBA);
+    // GLuint box_texture_diffuse = load_texture("wooden-container_d.png", TextureFormat_SRGBA, PixelFormat_RGBA);
+    GLuint box_texture_diffuse = load_texture("brickwall.jpg", TextureFormat_SRGB, PixelFormat_RGB);
+    // GLuint box_texture_specular = load_texture("wooden-container_s.png", TextureFormat_RGBA,
+	// 										   PixelFormat_RGBA);
+    // GLuint box_texture_normal = load_texture("wooden-container_n.png", TextureFormat_RGB,
+	// 										 PixelFormat_RGB);
+    GLuint box_texture_normal = load_texture("brickwall_normal.jpg", TextureFormat_RGB,
+											 PixelFormat_RGB);
 
     // load_texture("Brick/Brick1/1024/Brick-Diffuse.tga", floor_texture_diffuse, true);
     GLuint floor_texture_diffuse = load_texture("tile.jpg", TextureFormat_SRGB, PixelFormat_RGB);
@@ -281,13 +284,17 @@ main(void)
 
     TexturedCube cubes[4] = {
         TexturedCube(Vec3f(0.0f, 1.0f, 0.0f), Vec3f(1), 128,
-					 box_texture_diffuse, box_texture_specular, box_texture_normal),
+					 // box_texture_diffuse, box_texture_specular, box_texture_normal),
+					 box_texture_diffuse, box_texture_diffuse, box_texture_normal),
         TexturedCube(Vec3f(4.0f, 3.0f, 0.0f), Vec3f(1), 128,
-					 box_texture_diffuse, box_texture_specular, box_texture_normal),
+					 // box_texture_diffuse, box_texture_specular, box_texture_normal),
+					 box_texture_diffuse, box_texture_diffuse, box_texture_normal),
         TexturedCube(Vec3f(1.0f, 5.0f, 2.0f), Vec3f(1), 128,
-					 box_texture_diffuse, box_texture_specular, box_texture_normal),
+					 // box_texture_diffuse, box_texture_specular, box_texture_normal),
+					 box_texture_diffuse, box_texture_diffuse, box_texture_normal),
         TexturedCube(Vec3f(-5.0f, 2.0f, -1.0f), Vec3f(1), 128,
-					 box_texture_diffuse, box_texture_specular, box_texture_normal),
+					 // box_texture_diffuse, box_texture_specular, box_texture_normal),
+					 box_texture_diffuse, box_texture_diffuse, box_texture_normal),
     };
 
     PointLight lights[4] = {

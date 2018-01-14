@@ -35,7 +35,6 @@ struct Mesh
 
 	std::vector<Face>               faces;
 	std::vector<std::vector<isize>> faces_textures;
-	std::vector<Vec3f>              faces_normal;
 	std::vector<isize>              faces_tangent;
 	std::vector<isize>              faces_bitangent;
 

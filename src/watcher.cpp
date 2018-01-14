@@ -163,7 +163,7 @@ watcher_start(void *arg)
     {
         pthread_mutex_destroy(&g_mutex_running);
         pthread_mutex_destroy(&g_mutex_event_buffer);
-        LT_Fail("Could not add watch to %s\n", PATH);
+        LT_Fail("Could not add watch to %s\n", RESOURCES_PATH);
     }
 
     char buf[BUF_LEN] = {};

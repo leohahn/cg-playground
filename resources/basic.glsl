@@ -5,25 +5,41 @@
  * ==================================== */
 #ifdef COMPILING_VERTEX
 
-layout (location = 0) in vec3 in_position;
-layout (location = 1) in vec2 in_tex_coord;
-layout (location = 2) in vec3 in_normal;
+layout (location = 0) in vec3 att_position;
+layout (location = 1) in vec2 att_tex_coords;
+layout (location = 2) in vec3 att_normal;
+layout (location = 3) in vec3 att_tangent;
+layout (location = 4) in vec3 att_bitangent;
 
 uniform mat4 model;
 uniform mat4 view;
 uniform mat4 projection;
 
-out vec2 frag_tex_coord;
+out vec2 frag_tex_coords;
 out vec3 frag_normal;
 out vec3 frag_world_pos;
+
+out VS_OUT
+{
+	vec3 frag_world_pos;
+	vec2 frag_tex_coords;
+	mat3 TBN;
+} vs_out;
 
 void
 main()
 {
-    frag_tex_coord = in_tex_coord;
-    frag_normal = mat3(transpose(inverse(model))) * in_normal;
-    frag_world_pos = vec3(model * vec4(in_position, 1.0f));
-    gl_Position = projection * view * model * vec4(in_position, 1.0f);
+    vs_out.frag_tex_coords = att_tex_coords;
+    vs_out.frag_world_pos = vec3(model * vec4(att_position, 1.0f));
+    frag_normal = mat3(transpose(inverse(model))) * att_normal;
+
+	vec3 T = normalize(vec3(model * vec4(att_tangent,   0.0)));
+	vec3 B = normalize(vec3(model * vec4(att_bitangent, 0.0)));
+	vec3 N = normalize(vec3(model * vec4(att_normal,    0.0)));
+
+	vs_out.TBN = mat3(T, B, N);
+
+    gl_Position = projection * view * model * vec4(att_position, 1.0f);
 }
 
 #endif
@@ -35,9 +51,16 @@ main()
  * ==================================== */
 #ifdef COMPILING_FRAGMENT
 
-in vec2 frag_tex_coord;
+// in vec2 frag_tex_coord;
 in vec3 frag_normal;
-in vec3 frag_world_pos;
+// in vec3 frag_world_pos;
+
+in VS_OUT
+{
+	vec3 frag_world_pos;
+	vec2 frag_tex_coords;
+	mat3 TBN;
+} vs_out;
 
 out vec4 frag_color;
 
@@ -73,11 +96,11 @@ uniform mat4 model;
 vec3
 calc_point_light(PointLight light, vec3 normal)
 {
-    vec3 diffuse_color = vec3(texture(material.texture_diffuse1, frag_tex_coord));
-    vec3 specular_color = vec3(texture(material.texture_specular1, frag_tex_coord));
+    vec3 diffuse_color = vec3(texture(material.texture_diffuse1, vs_out.frag_tex_coords));
+    vec3 specular_color = vec3(texture(material.texture_specular1, vs_out.frag_tex_coords));
 
-    vec3 frag_to_light = normalize(light.position - frag_world_pos);
-    vec3 frag_to_view = normalize(view_position - frag_world_pos);
+    vec3 frag_to_light = normalize(light.position - vs_out.frag_world_pos);
+    vec3 frag_to_view = normalize(view_position - vs_out.frag_world_pos);
     vec3 halfway_dir = normalize(frag_to_light + frag_to_view);
 
     float dist = length(frag_to_light);
@@ -104,8 +127,9 @@ main()
 	vec3 normal;
 	if (material.use_normal_map)
 	{
-		normal = texture(material.texture_normal1, frag_tex_coord).rgb;
+		normal = texture(material.texture_normal1, vs_out.frag_tex_coords).rgb;
 		normal = normalize(normal * 2 - 1.0); // map to range [-1, 1]
+		normal = normalize(vs_out.TBN * normal);
 	}
 	else
 	{
