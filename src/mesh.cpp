@@ -139,22 +139,22 @@ setup_mesh_buffers(Mesh &m)
     glBindVertexArray(0);
 }
 
-lt_internal void
-calc_tangent_bitangent(Vec3f edge1, Vec3f edge2, Vec2f delta_uv1, Vec2f delta_uv2, 
-					   Vec3f &tangent, Vec3f &bitangent)
-{
-	const f32 f = 1.0f / (delta_uv1.x*delta_uv2.y - delta_uv2.x*delta_uv1.y);
+// lt_internal void
+// calc_tangent_bitangent(Vec3f edge1, Vec3f edge2, Vec2f delta_uv1, Vec2f delta_uv2, 
+// 					   Vec3f &tangent, Vec3f &bitangent)
+// {
+// 	const f32 f = 1.0f / (delta_uv1.x*delta_uv2.y - delta_uv2.x*delta_uv1.y);
 
-	tangent.x = f * (delta_uv2.y * edge1.x - delta_uv1.y * edge2.x);
-	tangent.y = f * (delta_uv2.y * edge1.y - delta_uv1.y * edge2.y);
-	tangent.z = f * (delta_uv2.y * edge1.z - delta_uv1.y * edge2.z);
-	tangent = lt::normalize(tangent);
+// 	tangent.x = f * (delta_uv2.y * edge1.x - delta_uv1.y * edge2.x);
+// 	tangent.y = f * (delta_uv2.y * edge1.y - delta_uv1.y * edge2.y);
+// 	tangent.z = f * (delta_uv2.y * edge1.z - delta_uv1.y * edge2.z);
+// 	tangent = lt::normalize(tangent);
 
-	bitangent.x = f * (-delta_uv2.x * edge1.x + delta_uv1.x * edge2.x);
-	bitangent.y = f * (-delta_uv2.x * edge1.y + delta_uv1.x * edge2.y);
-	bitangent.z = f * (-delta_uv2.x * edge1.z + delta_uv1.x * edge2.z);
-	bitangent = lt::normalize(bitangent);  
-}
+// 	bitangent.x = f * (-delta_uv2.x * edge1.x + delta_uv1.x * edge2.x);
+// 	bitangent.y = f * (-delta_uv2.x * edge1.y + delta_uv1.x * edge2.y);
+// 	bitangent.z = f * (-delta_uv2.x * edge1.z + delta_uv1.x * edge2.z);
+// 	bitangent = lt::normalize(bitangent);  
+// }
 
 Mesh
 Mesh::static_unit_cube(u32 diffuse_texture, u32 specular_texture, u32 normal_texture)
@@ -201,7 +201,7 @@ Mesh::static_unit_cube(u32 diffuse_texture, u32 specular_texture, u32 normal_tex
 		// Create the normal from the edges of the face
 		Vec3f normal = lt::normalize(lt::cross(edge1, edge2));
 
-		logger.log("    normal    = ", normal.x, " ", normal.y, " ", normal.z);
+		// logger.log("    normal    = ", normal.x, " ", normal.y, " ", normal.z);
 		mesh.vertexes[face.val[0]].normal = normal;
 		mesh.vertexes[face.val[1]].normal = normal;
 		mesh.vertexes[face.val[2]].normal = normal;
@@ -230,10 +230,10 @@ Mesh::static_unit_cube(u32 diffuse_texture, u32 specular_texture, u32 normal_tex
 		mesh.vertexes[face.val[1]].bitangent = bitangent;
 		mesh.vertexes[face.val[2]].bitangent = bitangent;
 
-		logger.log("    tangent   = ", tangent.x, " ", tangent.y, " ", tangent.z);
-		logger.log("    bitangent = ", bitangent.x, " ", bitangent.y, " ", bitangent.z);
+		// logger.log("    tangent   = ", tangent.x, " ", tangent.y, " ", tangent.z);
+		// logger.log("    bitangent = ", bitangent.x, " ", bitangent.y, " ", bitangent.z);
 
-		// LT_Assert(lt::cross(tangent, bitangent) == normal);
+		LT_Assert(lt::cross(tangent, bitangent) == normal);
 
 		mesh.faces.push_back(face);
 		mesh.faces_textures.push_back(std::vector<isize>{0, 1, 2});
@@ -319,9 +319,10 @@ Mesh::static_unit_plane(f32 tex_coords_scale, u32 diffuse_texture,
 		mesh.faces.push_back(face);
 		mesh.faces_textures.push_back(std::vector<isize>{0, 1, 2});
 
-		logger.log("    normal    = ", normal.x, " ", normal.y, " ", normal.z);
-		logger.log("    tangent   = ", tangent.x, " ", tangent.y, " ", tangent.z);
-		logger.log("    bitangent = ", bitangent.x, " ", bitangent.y, " ", bitangent.z);
+		// logger.log("    normal    = ", normal.x, " ", normal.y, " ", normal.z);
+		// logger.log("    tangent   = ", tangent.x, " ", tangent.y, " ", tangent.z);
+		// logger.log("    bitangent = ", bitangent.x, " ", bitangent.y, " ", bitangent.z);
+
 		LT_Assert(lt::cross(tangent, bitangent) == normal);
 	}
 
