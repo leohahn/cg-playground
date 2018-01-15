@@ -36,6 +36,18 @@ struct GLContext
     {
         glBindVertexArray(0);
     }
+
+	inline void
+	enable_multisampling()
+	{
+		glEnable(GL_MULTISAMPLE);
+	}
+
+	inline void
+	disable_multisampling()
+	{
+		glDisable(GL_MULTISAMPLE);
+	}
 };
 
 #endif // GL_CONTEXT_HPP

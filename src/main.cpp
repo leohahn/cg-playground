@@ -26,7 +26,7 @@
 #include "stb_image.h"
 
 lt_global_variable lt::Logger logger("main");
-lt_global_variable bool g_display_debug_gui = false;
+lt_global_variable bool g_display_debug_gui = true;
 lt_global_variable DebugGuiState g_debug_gui_state;
 
 struct Key
@@ -124,6 +124,7 @@ create_window_and_set_context(const char *title, i32 width, i32 height)
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_RESIZABLE, false);
+	glfwWindowHint(GLFW_SAMPLES, 4);
 
     GLFWwindow *window = glfwCreateWindow(width, height, title, nullptr, nullptr);
 
@@ -394,6 +395,11 @@ main(void)
 
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		if (g_debug_gui_state.enable_multisampling)
+			context.enable_multisampling();
+		else
+			context.disable_multisampling();
 
         total_delta = g_debug_gui_state.frame_time / DESIRED_FRAMETIME;
         u32 loops = 0;

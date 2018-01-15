@@ -16,7 +16,8 @@ void
 debug_gui_init(GLFWwindow *window)
 {
 	 ImGui_ImplGlfwGL3_Init(window, true);
-	 ImGui::StyleColorsDark();
+	 // ImGui::StyleColorsDark();
+	 ImGui::StyleColorsClassic();
 }
 
 void
@@ -24,9 +25,11 @@ debug_gui_draw(GLFWwindow *window, DebugGuiState *state)
 {
 	ImGui_ImplGlfwGL3_NewFrame();
 
-	ImGui::Begin("Rendering Options");
+	ImGui::Begin("Rendering Options", nullptr,
+				 ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse);
 	ImGui::Checkbox("Normal mapping", &state->enable_normal_mapping);
-	ImGui::Text("Frame time: %.2f ms", state->frame_time * 1000);
+	ImGui::Checkbox("Multisampling", &state->enable_multisampling);
+	ImGui::Text("Frame time: %.2f ms/frame", state->frame_time * 1000);
 	ImGui::Text("FPS: %.2f", state->fps);
 	ImGui::End();
 

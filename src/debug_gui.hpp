@@ -8,6 +8,7 @@ struct GLFWwindow;
 struct DebugGuiState
 {
 	bool enable_normal_mapping = true;
+	bool enable_multisampling = true;
 	f32  frame_time;
 	f32  fps;
 };
