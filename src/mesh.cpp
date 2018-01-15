@@ -84,6 +84,9 @@ lt_internal const Vec2f UNIT_CUBE_TEX_COORDS[24] =
     Vec2f(0, 1), // 23
 };
 
+static_assert(LT_Count(UNIT_CUBE_VERTICES) == LT_Count(UNIT_CUBE_TEX_COORDS),
+			  "need the same amount of vertices");
+
 const Vec3f UNIT_PLANE_VERTICES[] =
 {
     Vec3f(-1.0f,  0.0f,  1.0f), // 0
@@ -104,6 +107,28 @@ lt_internal const u32 UNIT_PLANE_INDICES[] =
 {
     0, 1, 2, 2, 3, 0
 };
+
+lt_internal void
+setup_cubemap_buffers(CubemapMesh &m)
+{
+    glGenVertexArrays(1, &m.vao);
+    glGenBuffers(1, &m.vbo);
+    glGenBuffers(1, &m.ebo);
+
+    glBindVertexArray(m.vao);
+    glBindBuffer(GL_ARRAY_BUFFER, m.vbo);
+
+    glBufferData(GL_ARRAY_BUFFER, m.vertices.size() * sizeof(Vec3f), &m.vertices[0], GL_STATIC_DRAW);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m.ebo);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, m.faces.size() * sizeof(Face), &m.faces[0], GL_STATIC_DRAW);
+
+    // vertex positions
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vec3f), (void*)0);
+    glEnableVertexAttribArray(0);
+
+    glBindVertexArray(0);
+}
 
 lt_internal void
 setup_mesh_buffers(Mesh &m)
@@ -139,25 +164,30 @@ setup_mesh_buffers(Mesh &m)
     glBindVertexArray(0);
 }
 
-// lt_internal void
-// calc_tangent_bitangent(Vec3f edge1, Vec3f edge2, Vec2f delta_uv1, Vec2f delta_uv2, 
-// 					   Vec3f &tangent, Vec3f &bitangent)
-// {
-// 	const f32 f = 1.0f / (delta_uv1.x*delta_uv2.y - delta_uv2.x*delta_uv1.y);
+CubemapMesh
+make_mesh_cubemap(u32 cubemap_texture)
+{
+	CubemapMesh mesh = {};
+	mesh.texture_id = cubemap_texture;
 
-// 	tangent.x = f * (delta_uv2.y * edge1.x - delta_uv1.y * edge2.x);
-// 	tangent.y = f * (delta_uv2.y * edge1.y - delta_uv1.y * edge2.y);
-// 	tangent.z = f * (delta_uv2.y * edge1.z - delta_uv1.y * edge2.z);
-// 	tangent = lt::normalize(tangent);
+	for (usize i = 0; i < LT_Count(UNIT_CUBE_VERTICES); i++)
+		mesh.vertices.push_back(UNIT_CUBE_VERTICES[i]);
 
-// 	bitangent.x = f * (-delta_uv2.x * edge1.x + delta_uv1.x * edge2.x);
-// 	bitangent.y = f * (-delta_uv2.x * edge1.y + delta_uv1.x * edge2.y);
-// 	bitangent.z = f * (-delta_uv2.x * edge1.z + delta_uv1.x * edge2.z);
-// 	bitangent = lt::normalize(bitangent);  
-// }
+	for (usize i = 0; i < LT_Count(UNIT_CUBE_INDICES); i+=3)
+	{
+		Face face = {};
+		face.val[0] = UNIT_CUBE_INDICES[i+2];
+		face.val[1] = UNIT_CUBE_INDICES[i+1];
+		face.val[2] = UNIT_CUBE_INDICES[i];
+		mesh.faces.push_back(face);
+	}
+
+	setup_cubemap_buffers(mesh);
+	return mesh;
+}
 
 Mesh
-Mesh::static_unit_cube(u32 diffuse_texture, u32 specular_texture, u32 normal_texture)
+make_mesh_unit_cube(u32 diffuse_texture, u32 specular_texture, u32 normal_texture)
 {
 	Mesh mesh = {};
 
@@ -230,9 +260,6 @@ Mesh::static_unit_cube(u32 diffuse_texture, u32 specular_texture, u32 normal_tex
 		mesh.vertexes[face.val[1]].bitangent = bitangent;
 		mesh.vertexes[face.val[2]].bitangent = bitangent;
 
-		// logger.log("    tangent   = ", tangent.x, " ", tangent.y, " ", tangent.z);
-		// logger.log("    bitangent = ", bitangent.x, " ", bitangent.y, " ", bitangent.z);
-
 		LT_Assert(lt::cross(tangent, bitangent) == normal);
 
 		mesh.faces.push_back(face);
@@ -244,8 +271,8 @@ Mesh::static_unit_cube(u32 diffuse_texture, u32 specular_texture, u32 normal_tex
 }
 
 Mesh
-Mesh::static_unit_plane(f32 tex_coords_scale, u32 diffuse_texture,
-						u32 specular_texture, u32 normal_texture)
+make_mesh_unit_plane(f32 tex_coords_scale, u32 diffuse_texture,
+				u32 specular_texture, u32 normal_texture)
 {
 	// logger.log("Creating unit plane");
 	Mesh mesh = {};

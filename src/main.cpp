@@ -192,7 +192,7 @@ struct TexturedCube
         : position(position)
         , scaling(scaling)
         , shininess(shininess)
-        , mesh(Mesh::static_unit_cube(diffuse_texture, specular_texture, normal_texture))
+        , mesh(make_mesh_unit_cube(diffuse_texture, specular_texture, normal_texture))
     {}
 };
 
@@ -207,7 +207,7 @@ struct PointLight
         : position(position)
         , scaling(scaling)
         , color(color)
-        , mesh(Mesh::static_unit_cube(diffuse_texture, specular_texture))
+        , mesh(make_mesh_unit_cube(diffuse_texture, specular_texture))
     {}
 };
 
@@ -225,7 +225,51 @@ enum PixelFormat
 	PixelFormat_RGBA = GL_RGBA,
 };
 
-GLuint
+lt_internal u32
+load_cubemap_texture(const char **textures_files, i32 num_textures,
+					 TextureFormat texture_format, PixelFormat pixel_format)
+{
+	LT_Assert(num_textures == 6);
+
+	// Create and bind the new texture
+	u32 texture;
+	glGenTextures(1, &texture);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, texture);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);  
+
+	logger.log("Loading cubemap");
+	for (i32 i = 0; i < num_textures; i++)
+	{
+		std::string fullpath = std::string(RESOURCES_PATH) + std::string(textures_files[i]);
+
+		i32 width, height, num_channels;
+		u8 *image_data = stbi_load(fullpath.c_str(), &width, &height, &num_channels, 0);
+
+		if (image_data)
+		{
+			const i32 mipmap_level = 0;
+			glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, mipmap_level, texture_format, width, height,
+						 0, pixel_format, GL_UNSIGNED_BYTE, image_data);
+
+			logger.log("    OK: ", fullpath);
+			logger.log("    [", width, " x ", height, "] (num channels = ", num_channels, ")");
+
+			stbi_image_free(image_data);
+		}
+		else
+		{
+			logger.error("    Failed loading texture ", fullpath);
+		}
+	}
+
+	return texture;
+}
+
+lt_internal u32
 load_texture(const char *path, TextureFormat texture_format, PixelFormat pixel_format)
 {
     std::string fullpath = std::string(RESOURCES_PATH) + std::string(path);
@@ -302,6 +346,11 @@ main(void)
         basic_shader.setup_projection_matrix(ASPECT_RATIO, context);
     });
 
+    Shader skybox_shader("skybox.glsl");
+    skybox_shader.on_recompilation([&] {
+        skybox_shader.setup_projection_matrix(ASPECT_RATIO, context);
+    });
+
     const f32 FIELD_OF_VIEW = 60.0f;
     const f32 MOVE_SPEED = 0.05f;
     const f32 ROTATION_SPEED = 0.02f;
@@ -309,22 +358,32 @@ main(void)
                   FIELD_OF_VIEW, ASPECT_RATIO, MOVE_SPEED, ROTATION_SPEED);
 
     // GLuint box_texture_diffuse = load_texture("wooden-container_d.png", TextureFormat_SRGBA, PixelFormat_RGBA);
-    GLuint box_texture_diffuse = load_texture("brickwall.jpg", TextureFormat_SRGB, PixelFormat_RGB);
+    u32 box_texture_diffuse = load_texture("brickwall.jpg", TextureFormat_SRGB, PixelFormat_RGB);
     // GLuint box_texture_specular = load_texture("wooden-container_s.png", TextureFormat_RGBA,
 	// 										   PixelFormat_RGBA);
     // GLuint box_texture_normal = load_texture("wooden-container_n.png", TextureFormat_RGB,
 	// 										 PixelFormat_RGB);
-    GLuint box_texture_normal = load_texture("brickwall_normal.jpg", TextureFormat_RGB,
+    u32 box_texture_normal = load_texture("brickwall_normal.jpg", TextureFormat_RGB,
 											 PixelFormat_RGB);
 
-    GLuint floor_texture_diffuse = load_texture("177.JPG", TextureFormat_SRGB, PixelFormat_RGB);
-    GLuint floor_texture_normal = load_texture("177_norm.JPG", TextureFormat_RGB, PixelFormat_RGB);
+    u32 floor_texture_diffuse = load_texture("177.JPG", TextureFormat_SRGB, PixelFormat_RGB);
+    u32 floor_texture_normal = load_texture("177_norm.JPG", TextureFormat_RGB, PixelFormat_RGB);
 
 	// Wall textures
-    GLuint wall_texture_diffuse = load_texture("brickwall.jpg", TextureFormat_SRGB,
+    u32 wall_texture_diffuse = load_texture("brickwall.jpg", TextureFormat_SRGB,
 											   PixelFormat_RGB);
-    GLuint wall_texture_normal = load_texture("brickwall_normal.jpg", TextureFormat_RGB,
+    u32 wall_texture_normal = load_texture("brickwall_normal.jpg", TextureFormat_RGB,
 											  PixelFormat_RGB);
+
+	const char *skybox_faces[] = {
+		"right.jpg", // pos x
+		"left.jpg", // neg x
+		"top.jpg", // pos y
+		"bottom.jpg", // neg y
+		"back.jpg", // pos z
+		"front.jpg", // neg z
+	};
+	u32 skybox = load_cubemap_texture(skybox_faces, LT_Count(skybox_faces), TextureFormat_RGB, PixelFormat_RGB);
 
     TexturedCube cubes[4] = {
         TexturedCube(Vec3f(0.0f, 1.0f, 0.0f), Vec3f(1), 128,
@@ -348,13 +407,16 @@ main(void)
         PointLight(Vec3f(3.0f, 4.0f, 2.0f), Vec3f(0.1f, 0.1f, 0.1f), Vec3f(1.0f, 1.0f, 1.0f), 0, 0),
     };
 
-    Mesh floor_mesh = Mesh::static_unit_plane(10.0f, floor_texture_diffuse, floor_texture_diffuse,
+    Mesh floor_mesh = make_mesh_unit_plane(10.0f, floor_texture_diffuse, floor_texture_diffuse,
 											  floor_texture_normal);
-    Mesh wall_mesh = Mesh::static_unit_plane(5.0f, wall_texture_diffuse,
+    Mesh wall_mesh = make_mesh_unit_plane(5.0f, wall_texture_diffuse,
 											 wall_texture_diffuse, wall_texture_normal);
+
+	CubemapMesh skybox_mesh = make_mesh_cubemap(skybox);
 
     light_shader.setup_projection_matrix(ASPECT_RATIO, context);
     basic_shader.setup_projection_matrix(ASPECT_RATIO, context);
+    skybox_shader.setup_projection_matrix(ASPECT_RATIO, context);
 
 	// Initialize the DEBUG GUI
 	debug_gui_init(window);
@@ -486,6 +548,10 @@ main(void)
                 draw_mesh(lights[i].mesh, light_shader, context);
             }
         }
+
+		// Draw the skybox
+		draw_skybox(skybox_mesh, skybox_shader, camera.view_matrix(), context);
+
 
 		if (g_display_debug_gui)
 		{

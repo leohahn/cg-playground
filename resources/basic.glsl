@@ -15,15 +15,13 @@ uniform mat4 model;
 uniform mat4 view;
 uniform mat4 projection;
 
-out vec2 frag_tex_coords;
-out vec3 frag_normal;
-out vec3 frag_world_pos;
 
 out VS_OUT
 {
 	vec3 frag_world_pos;
 	vec2 frag_tex_coords;
 	mat3 TBN;
+	vec3 frag_normal; // @Temporary
 } vs_out;
 
 void
@@ -31,7 +29,7 @@ main()
 {
     vs_out.frag_tex_coords = att_tex_coords;
     vs_out.frag_world_pos = vec3(model * vec4(att_position, 1.0f));
-    frag_normal = mat3(transpose(inverse(model))) * att_normal;
+    vs_out.frag_normal = mat3(transpose(inverse(model))) * att_normal;
 
 	vec3 T = normalize(vec3(model * vec4(att_tangent,   0.0)));
 	vec3 B = normalize(vec3(model * vec4(att_bitangent, 0.0)));
@@ -52,7 +50,6 @@ main()
 #ifdef COMPILING_FRAGMENT
 
 // in vec2 frag_tex_coord;
-in vec3 frag_normal;
 // in vec3 frag_world_pos;
 
 in VS_OUT
@@ -60,6 +57,7 @@ in VS_OUT
 	vec3 frag_world_pos;
 	vec2 frag_tex_coords;
 	mat3 TBN;
+	vec3 frag_normal;
 } vs_out;
 
 out vec4 frag_color;
@@ -140,7 +138,7 @@ main()
 	}
 	else
 	{
-		normal = normalize(frag_normal);
+		normal = normalize(vs_out.frag_normal);
 	}
 
     vec3 light_contributions = vec3(0);

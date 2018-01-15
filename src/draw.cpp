@@ -50,3 +50,19 @@ draw_mesh(const Mesh &mesh, Shader &shader, GLContext &context)
     // always good practice to set everything back to defaults once configured.
     glActiveTexture(GL_TEXTURE0);
 }
+
+void
+draw_skybox(const CubemapMesh &mesh, Shader &shader, const Mat4f &view, GLContext &context)
+{
+	glDepthFunc(GL_LEQUAL);
+
+	context.use_shader(shader);
+	shader.set_matrix("view", view);
+
+    context.bind_vao(mesh.vao);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, mesh.texture_id);
+    glDrawElements(GL_TRIANGLES, mesh.number_of_indices(), GL_UNSIGNED_INT, 0);
+    context.unbind_vao();
+
+	glDepthFunc(GL_LESS);
+}
