@@ -316,8 +316,8 @@ main(void)
     GLuint box_texture_normal = load_texture("brickwall_normal.jpg", TextureFormat_RGB,
 											 PixelFormat_RGB);
 
-    // load_texture("Brick/Brick1/1024/Brick-Diffuse.tga", floor_texture_diffuse, true);
-    GLuint floor_texture_diffuse = load_texture("tile.jpg", TextureFormat_SRGB, PixelFormat_RGB);
+    GLuint floor_texture_diffuse = load_texture("177.JPG", TextureFormat_SRGB, PixelFormat_RGB);
+    GLuint floor_texture_normal = load_texture("177_norm.JPG", TextureFormat_RGB, PixelFormat_RGB);
 
 	// Wall textures
     GLuint wall_texture_diffuse = load_texture("brickwall.jpg", TextureFormat_SRGB,
@@ -347,7 +347,8 @@ main(void)
         PointLight(Vec3f(3.0f, 4.0f, 2.0f), Vec3f(0.1f, 0.1f, 0.1f), Vec3f(1.0f, 1.0f, 1.0f), 0, 0),
     };
 
-    Mesh floor_mesh = Mesh::static_unit_plane(10.0f, floor_texture_diffuse, floor_texture_diffuse);
+    Mesh floor_mesh = Mesh::static_unit_plane(10.0f, floor_texture_diffuse, floor_texture_diffuse,
+											  floor_texture_normal);
     Mesh wall_mesh = Mesh::static_unit_plane(5.0f, wall_texture_diffuse,
 											 wall_texture_diffuse, wall_texture_normal);
 
@@ -363,7 +364,7 @@ main(void)
     const u32 MAX_STEPS = 6;
     const f64 MAX_DELTA_TIME = 1.0;
 
-    f64 new_time, total_delta, delta, frame_time;
+    f64 new_time, total_delta, delta;
     f64 previous_time = glfwGetTime();
 
     bool running = true;
@@ -371,9 +372,9 @@ main(void)
     {
         // Update frame information.
         new_time = glfwGetTime();
-        frame_time = new_time - previous_time;
+        g_debug_gui_state.frame_time = new_time - previous_time;
         previous_time = new_time;
-        f32 fps = 1 / frame_time; // used for logging
+        g_debug_gui_state.fps = 1 / g_debug_gui_state.frame_time; // used for logging
 
         // Process input and watcher events.
         process_input(window, g_keyboard);
@@ -394,7 +395,7 @@ main(void)
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        total_delta = frame_time / DESIRED_FRAMETIME;
+        total_delta = g_debug_gui_state.frame_time / DESIRED_FRAMETIME;
         u32 loops = 0;
         while (total_delta > 0.0 && loops < MAX_STEPS)
         {

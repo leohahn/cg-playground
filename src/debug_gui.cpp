@@ -26,6 +26,8 @@ debug_gui_draw(GLFWwindow *window, DebugGuiState *state)
 
 	ImGui::Begin("Rendering Options");
 	ImGui::Checkbox("Normal mapping", &state->enable_normal_mapping);
+	ImGui::Text("Frame time: %.2f ms", state->frame_time * 1000);
+	ImGui::Text("FPS: %.2f", state->fps);
 	ImGui::End();
 
 	// ImGui::ShowDemoWindow();

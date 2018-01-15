@@ -179,7 +179,7 @@ Mesh::static_unit_cube(u32 diffuse_texture, u32 specular_texture, u32 normal_tex
 
 	for (usize i = 0; i < LT_Count(UNIT_CUBE_INDICES); i+=3)
 	{
-		logger.log("Face ", i/3 + 1);
+		// logger.log("Face ", i/3 + 1);
 		Face face = {};
 		face.val[0] = UNIT_CUBE_INDICES[i];
 		face.val[1] = UNIT_CUBE_INDICES[i+1];
@@ -247,7 +247,7 @@ Mesh
 Mesh::static_unit_plane(f32 tex_coords_scale, u32 diffuse_texture,
 						u32 specular_texture, u32 normal_texture)
 {
-	logger.log("Creating unit plane");
+	// logger.log("Creating unit plane");
 	Mesh mesh = {};
 
 	// Add all textures to the mesh
