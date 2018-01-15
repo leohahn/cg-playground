@@ -199,7 +199,7 @@ Mesh::static_unit_cube(u32 diffuse_texture, u32 specular_texture, u32 normal_tex
 		const Vec3f edge2 = pos3 - pos1;
 
 		// Create the normal from the edges of the face
-		Vec3f normal = lt::normalize(lt::cross(edge1, edge2));
+		const Vec3f normal = lt::normalize(lt::cross(edge1, edge2));
 
 		// logger.log("    normal    = ", normal.x, " ", normal.y, " ", normal.z);
 		mesh.vertexes[face.val[0]].normal = normal;

@@ -2,7 +2,7 @@ project('tutorial', 'cpp',
         default_options: ['cpp_std=c++14'])
 
 # Include directories
-project_inc_dir = include_directories('src')
+project_inc_dir  = include_directories('src')
 lt_inc_dir       = include_directories('lt/src')
 
 cpp = meson.get_compiler('cpp')
@@ -17,7 +17,8 @@ cpp_args = ['-Wall', '-DDEV_ENV', '-DLT_DEBUG', '-g']
 executable('rbs',
            'src/main.cpp', 'src/glad/glad.cpp', 'src/watcher.cpp', 'src/shader.cpp',
            'lt/src/lt_fs.cpp', 'lt/src/lt_math.cpp', 'src/camera.cpp', 'src/gl_resources.cpp',
-           'src/stb_image.cpp', 'src/draw.cpp', 'src/mesh.cpp',
+           'src/stb_image.cpp', 'src/draw.cpp', 'src/mesh.cpp', 'src/debug_gui.cpp', 'src/imgui_impl_glfw.cpp',
+		   'src/imgui/imgui.cpp', 'src/imgui/imgui_draw.cpp',
            dependencies: [
              thread_dep,
              m_dep,

@@ -21,10 +21,29 @@
 #include "gl_resources.hpp"
 #include "gl_context.hpp"
 #include "mesh.hpp"
+#include "debug_gui.hpp"
 
 #include "stb_image.h"
 
 lt_global_variable lt::Logger logger("main");
+lt_global_variable bool g_display_debug_gui = false;
+
+struct Key
+{
+	enum Transition
+	{
+		Transition_None = 0,
+		Transition_Up = 1,
+		Transition_Down = 2,
+	};
+
+	bool is_pressed;
+	Transition last_transition;
+};
+
+const i32 NUM_KEYBOARD_KEYS = 1024;
+
+lt_global_variable Key g_keyboard[NUM_KEYBOARD_KEYS] = {};
 
 lt_internal void
 framebuffer_size_callback(GLFWwindow *w, i32 width, i32 height)
@@ -34,7 +53,27 @@ framebuffer_size_callback(GLFWwindow *w, i32 width, i32 height)
 }
 
 lt_internal void
-process_input(GLFWwindow *win, bool *keyboard)
+update_key_state(Key &key, bool key_pressed)
+{
+	if ((key_pressed && key.is_pressed) ||
+		(!key_pressed && !key.is_pressed))
+	{
+		key.last_transition = Key::Transition_None;
+	}
+	else if (key_pressed && !key.is_pressed)
+	{
+		key.is_pressed = true;
+		key.last_transition = Key::Transition_Down;
+	}
+	else if (!key_pressed && key.is_pressed)
+	{
+		key.is_pressed = false;
+		key.last_transition = Key::Transition_Up;
+	}
+}
+
+lt_internal void
+process_input(GLFWwindow *win, Key *kb)
 {
     if (glfwGetKey(win, GLFW_KEY_ESCAPE) == GLFW_PRESS ||
         glfwGetKey(win, GLFW_KEY_Q) == GLFW_PRESS)
@@ -42,14 +81,18 @@ process_input(GLFWwindow *win, bool *keyboard)
         glfwSetWindowShouldClose(win, true);
     }
 
-    keyboard[GLFW_KEY_W] = glfwGetKey(win, GLFW_KEY_W);
-    keyboard[GLFW_KEY_S] = glfwGetKey(win, GLFW_KEY_S);
-    keyboard[GLFW_KEY_A] = glfwGetKey(win, GLFW_KEY_A);
-    keyboard[GLFW_KEY_D] = glfwGetKey(win, GLFW_KEY_D);
-    keyboard[GLFW_KEY_UP] = glfwGetKey(win, GLFW_KEY_UP);
-    keyboard[GLFW_KEY_DOWN] = glfwGetKey(win, GLFW_KEY_DOWN);
-    keyboard[GLFW_KEY_LEFT] = glfwGetKey(win, GLFW_KEY_LEFT);
-    keyboard[GLFW_KEY_RIGHT] = glfwGetKey(win, GLFW_KEY_RIGHT);
+	update_key_state(kb[GLFW_KEY_W], glfwGetKey(win, GLFW_KEY_W));
+	update_key_state(kb[GLFW_KEY_S], glfwGetKey(win, GLFW_KEY_S));
+	update_key_state(kb[GLFW_KEY_A], glfwGetKey(win, GLFW_KEY_A));
+	update_key_state(kb[GLFW_KEY_D], glfwGetKey(win, GLFW_KEY_D));
+	update_key_state(kb[GLFW_KEY_UP], glfwGetKey(win, GLFW_KEY_UP));
+	update_key_state(kb[GLFW_KEY_DOWN], glfwGetKey(win, GLFW_KEY_DOWN));
+	update_key_state(kb[GLFW_KEY_LEFT], glfwGetKey(win, GLFW_KEY_LEFT));
+	update_key_state(kb[GLFW_KEY_RIGHT], glfwGetKey(win, GLFW_KEY_RIGHT));
+	update_key_state(kb[GLFW_KEY_F1], glfwGetKey(win, GLFW_KEY_F1));
+
+	if (kb[GLFW_KEY_F1].last_transition == Key::Transition_Down)
+		g_display_debug_gui = !g_display_debug_gui;
 }
 
 lt_internal void
@@ -106,32 +149,32 @@ create_window_and_set_context(const char *title, i32 width, i32 height)
 }
 
 void
-game_update(bool *keyboard, Camera& camera, f64 delta)
+game_update(Key *kb, Camera& camera, f64 delta)
 {
     // Move
-    if (keyboard[GLFW_KEY_A] == GLFW_PRESS)
+    if (kb[GLFW_KEY_A].is_pressed)
         camera.move(Camera::Direction::Left, delta);
 
-    if (keyboard[GLFW_KEY_D] == GLFW_PRESS)
+    if (kb[GLFW_KEY_D].is_pressed)
         camera.move(Camera::Direction::Right, delta);
 
-    if (keyboard[GLFW_KEY_W] == GLFW_PRESS)
+    if (kb[GLFW_KEY_W].is_pressed)
         camera.move(Camera::Direction::Forwards, delta);
 
-    if (keyboard[GLFW_KEY_S] == GLFW_PRESS)
+    if (kb[GLFW_KEY_S].is_pressed)
         camera.move(Camera::Direction::Backwards, delta);
 
     // Rotation
-    if (keyboard[GLFW_KEY_RIGHT] == GLFW_PRESS)
+    if (kb[GLFW_KEY_RIGHT].is_pressed)
         camera.rotate(Camera::RotationAxis::Up, -delta);
 
-    if (keyboard[GLFW_KEY_LEFT] == GLFW_PRESS)
+    if (kb[GLFW_KEY_LEFT].is_pressed)
         camera.rotate(Camera::RotationAxis::Up, delta);
 
-    if (keyboard[GLFW_KEY_UP] == GLFW_PRESS)
+    if (kb[GLFW_KEY_UP].is_pressed)
         camera.rotate(Camera::RotationAxis::Right, delta);
 
-    if (keyboard[GLFW_KEY_DOWN] == GLFW_PRESS)
+    if (kb[GLFW_KEY_DOWN].is_pressed)
         camera.rotate(Camera::RotationAxis::Right, -delta);
 }
 
@@ -225,7 +268,6 @@ load_texture(const char *path, TextureFormat texture_format, PixelFormat pixel_f
 int
 main(void)
 {
-    lt_local_persist bool keyboard[1024] = {};
     /* ==================================================================================
      *     OpenGL and GLFW initialization
      * ================================================================================== */
@@ -311,6 +353,9 @@ main(void)
     light_shader.setup_projection_matrix(ASPECT_RATIO, context);
     basic_shader.setup_projection_matrix(ASPECT_RATIO, context);
 
+	// Initialize the DEBUG GUI
+	debug_gui_init(window);
+
     // Define variables to control time
     const f64 DESIRED_FPS = 60.0;
     const f64 DESIRED_FRAMETIME = 1.0 / DESIRED_FPS;
@@ -330,7 +375,7 @@ main(void)
         f32 fps = 1 / frame_time; // used for logging
 
         // Process input and watcher events.
-        process_input(window, keyboard);
+        process_input(window, g_keyboard);
 #ifdef DEV_ENV
         process_watcher_events(basic_shader, light_shader);
 #endif
@@ -354,7 +399,7 @@ main(void)
         {
             delta = std::min(total_delta, MAX_DELTA_TIME);
 
-            game_update(keyboard, camera, delta);
+            game_update(g_keyboard, camera, delta);
 
             total_delta -= delta;
             loops++;
@@ -432,6 +477,11 @@ main(void)
                 draw_mesh(lights[i].mesh, light_shader, context);
             }
         }
+
+		if (g_display_debug_gui)
+		{
+			debug_gui_draw(window);
+		}
 
         glfwSwapBuffers(window);
         glfwPollEvents();
