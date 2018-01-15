@@ -6,6 +6,7 @@
 #include <GLFW/glfw3.h>
 #include "imgui/imgui.h"
 #include "imgui_impl_glfw.hpp"
+#include <stdio.h>
 
 using std::cout;
 using std::endl;
@@ -19,13 +20,15 @@ debug_gui_init(GLFWwindow *window)
 }
 
 void
-debug_gui_draw(GLFWwindow *window)
+debug_gui_draw(GLFWwindow *window, DebugGuiState *state)
 {
 	ImGui_ImplGlfwGL3_NewFrame();
 
 	ImGui::Begin("Rendering Options");
-	ImGui::Text("my window maaaaann!");
+	ImGui::Checkbox("Normal mapping", &state->enable_normal_mapping);
 	ImGui::End();
+
+	// ImGui::ShowDemoWindow();
 
 	i32 display_w, display_h;
 	glfwGetFramebufferSize(window, &display_w, &display_h);

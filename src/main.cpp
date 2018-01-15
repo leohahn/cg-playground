@@ -27,6 +27,7 @@
 
 lt_global_variable lt::Logger logger("main");
 lt_global_variable bool g_display_debug_gui = false;
+lt_global_variable DebugGuiState g_debug_gui_state;
 
 struct Key
 {
@@ -409,6 +410,7 @@ main(void)
         {
             context.use_shader(basic_shader);
 
+			basic_shader.set1i("debug_gui_state.enable_normal_mapping", g_debug_gui_state.enable_normal_mapping);
             basic_shader.set_matrix("view", camera.view_matrix());
             basic_shader.set3f("view_position", camera.frustum.position);
 
@@ -480,7 +482,7 @@ main(void)
 
 		if (g_display_debug_gui)
 		{
-			debug_gui_draw(window);
+			debug_gui_draw(window, &g_debug_gui_state);
 		}
 
         glfwSwapBuffers(window);

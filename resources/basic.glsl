@@ -93,6 +93,13 @@ uniform PointLight point_lights[NUM_POINT_LIGHTS];
 uniform Material material;
 uniform mat4 model;
 
+struct DebugGuiState
+{
+	bool enable_normal_mapping;
+};
+
+uniform DebugGuiState debug_gui_state;
+
 vec3
 calc_point_light(PointLight light, vec3 normal)
 {
@@ -125,7 +132,7 @@ void
 main()
 {
 	vec3 normal;
-	if (material.use_normal_map)
+	if (debug_gui_state.enable_normal_mapping && material.use_normal_map)
 	{
 		normal = texture(material.texture_normal1, vs_out.frag_tex_coords).rgb;
 		normal = normalize(normal * 2 - 1.0); // map to range [-1, 1]
