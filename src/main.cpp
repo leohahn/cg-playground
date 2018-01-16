@@ -412,7 +412,7 @@ main(void)
     Mesh wall_mesh = make_mesh_unit_plane(5.0f, wall_texture_diffuse,
 											 wall_texture_diffuse, wall_texture_normal);
 
-	CubemapMesh skybox_mesh = make_mesh_cubemap(skybox);
+	Mesh skybox_mesh = make_mesh_cubemap(skybox);
 
     light_shader.setup_projection_matrix(ASPECT_RATIO, context);
     basic_shader.setup_projection_matrix(ASPECT_RATIO, context);

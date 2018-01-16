@@ -52,7 +52,7 @@ draw_mesh(const Mesh &mesh, Shader &shader, GLContext &context)
 }
 
 void
-draw_skybox(const CubemapMesh &mesh, Shader &shader, const Mat4f &view, GLContext &context)
+draw_skybox(const Mesh &mesh, Shader &shader, const Mat4f &view, GLContext &context)
 {
 	glDepthFunc(GL_LEQUAL);
 
@@ -60,7 +60,7 @@ draw_skybox(const CubemapMesh &mesh, Shader &shader, const Mat4f &view, GLContex
 	shader.set_matrix("view", view);
 
     context.bind_vao(mesh.vao);
-	glBindTexture(GL_TEXTURE_CUBE_MAP, mesh.texture_id);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, mesh.textures[0].id);
     glDrawElements(GL_TRIANGLES, mesh.number_of_indices(), GL_UNSIGNED_INT, 0);
     context.unbind_vao();
 

@@ -29,32 +29,51 @@ struct Texture
 
 typedef Vec3i Face;
 
+// struct TriangleList
+// {
+	
+// };
+
+struct Vertex_PUNTB
+{
+	Vec3f position;
+	Vec2f tex_coords;
+	Vec3f normal;
+	Vec3f tangent;
+	Vec3f bitangent;
+};
+
+static_assert(sizeof(Vertex_PUNTB) == sizeof(f32)*14, "Vertex_PUNTB should be packed.");
+
 struct Mesh
 {
-    std::vector<Vertex>             vertexes;
+	//
+	// IMPORTANT: Watch JonBlow's video to understand how to better create a Triangle Mesh struct.
+	// https://www.youtube.com/watch?v=g2F0Yg17ZfU
+	//
+    // std::vector<Vertex>             vertexes;
+	// std::vector<Face>               faces;
+	std::vector<std::vector<isize>> faces_textures;
+	// std::vector<isize>              faces_tangent;
+	// std::vector<isize>              faces_bitangent;
+
+	std::vector<Vec3f>              vertices;
+	std::vector<Vec2f>              tex_coords;
+	std::vector<Vec3f>              normals;
+	std::vector<Vec3f>              tangents;
+	std::vector<Vec3f>              bitangents;
 
 	std::vector<Face>               faces;
-	std::vector<std::vector<isize>> faces_textures;
-	std::vector<isize>              faces_tangent;
-	std::vector<isize>              faces_bitangent;
+	// std::vector<TriangleList>       triangle_lists;
 
-    std::vector<Texture>   textures;
+    std::vector<Texture>            textures;
     u32 vao, vbo, ebo;
 
 	inline isize number_of_indices() const {return faces.size() * 3;}
 
 };
 
-struct CubemapMesh
-{
-    std::vector<Vec3f>              vertices;
-	std::vector<Face>               faces;
-
-    u32 vao, vbo, ebo, texture_id;
-	inline isize number_of_indices() const {return faces.size() * 3;}
-};
-
-CubemapMesh make_mesh_cubemap(u32 cubemap_texture);
+Mesh make_mesh_cubemap(u32 cubemap_texture);
 Mesh make_mesh_unit_cube(u32 diffuse_texture, u32 specular_texture, u32 normal_texture = 0);
 Mesh make_mesh_unit_plane(f32 tex_coords_scale, u32 diffuse_texture,
 						  u32 specular_texture, u32 normal_texture = 0);
