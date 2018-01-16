@@ -311,6 +311,40 @@ load_texture(const char *path, TextureFormat texture_format, PixelFormat pixel_f
 	return texture;
 }
 
+lt_internal u32
+create_shadow_map()
+{
+	//
+	// TODO: Work on this function and shadow mapping
+	//
+
+	// Create the texture
+	u32 depth_map;
+	glGenTextures(1, &depth_map);
+	glBindTexture(GL_TEXTURE_2D, depth_map);
+
+	const i32 width = 1024, height = 1024;
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, width, height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT); 
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);  
+
+	// Attach texture to the framebuffer
+	u32 fbo;
+	glGenFramebuffers(1, &fbo);
+	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depth_map, 0);
+	glDrawBuffer(GL_NONE);
+	glReadBuffer(GL_NONE);
+
+	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+		logger.error("framebuffer not complete");
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	return fbo;
+}
+
 int
 main(void)
 {
@@ -357,14 +391,8 @@ main(void)
     Camera camera(Vec3f(0.0f, 5.0f, 10.0f), Vec3f(0.0f, 0.0f, -1.0f), Vec3f(0.0f, 1.0f, 0.0f),
                   FIELD_OF_VIEW, ASPECT_RATIO, MOVE_SPEED, ROTATION_SPEED);
 
-    // GLuint box_texture_diffuse = load_texture("wooden-container_d.png", TextureFormat_SRGBA, PixelFormat_RGBA);
-    u32 box_texture_diffuse = load_texture("brickwall.jpg", TextureFormat_SRGB, PixelFormat_RGB);
-    // GLuint box_texture_specular = load_texture("wooden-container_s.png", TextureFormat_RGBA,
-	// 										   PixelFormat_RGBA);
-    // GLuint box_texture_normal = load_texture("wooden-container_n.png", TextureFormat_RGB,
-	// 										 PixelFormat_RGB);
-    u32 box_texture_normal = load_texture("brickwall_normal.jpg", TextureFormat_RGB,
-											 PixelFormat_RGB);
+    u32 box_texture_diffuse = load_texture("155.JPG", TextureFormat_SRGB, PixelFormat_RGB);
+    u32 box_texture_normal = load_texture("155_norm.JPG", TextureFormat_RGB, PixelFormat_RGB);
 
     u32 floor_texture_diffuse = load_texture("177.JPG", TextureFormat_SRGB, PixelFormat_RGB);
     u32 floor_texture_normal = load_texture("177_norm.JPG", TextureFormat_RGB, PixelFormat_RGB);
@@ -384,6 +412,8 @@ main(void)
 		"front.jpg", // neg z
 	};
 	u32 skybox = load_cubemap_texture(skybox_faces, LT_Count(skybox_faces), TextureFormat_RGB, PixelFormat_RGB);
+
+	u32 shadow_map = create_shadow_map();
 
     TexturedCube cubes[4] = {
         TexturedCube(Vec3f(0.0f, 1.0f, 0.0f), Vec3f(1), 128,
@@ -521,7 +551,7 @@ main(void)
 
             // WALL
             Mat4f wall_model(1);
-            wall_model = lt::translation(wall_model, Vec3f(-3, 0, 0));
+            wall_model = lt::translation(wall_model, Vec3f(-10, 0, 0));
             wall_model = lt::rotation_y(wall_model, 90.0f);
             wall_model = lt::rotation_x(wall_model, 90.0f);
             wall_model = lt::scale(wall_model, Vec3f(8.0f));

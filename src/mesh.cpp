@@ -111,6 +111,13 @@ lt_internal const u32 UNIT_PLANE_INDICES[] =
     0, 1, 2, 2, 3, 0
 };
 
+Mesh::~Mesh()
+{
+	glDeleteBuffers(1, &vbo);
+	glDeleteBuffers(1, &ebo);
+	glDeleteVertexArrays(1, &vao);
+}
+
 lt_internal void
 setup_mesh_buffers_p(Mesh &m)
 {
@@ -136,6 +143,7 @@ setup_mesh_buffers_p(Mesh &m)
 lt_internal void
 setup_mesh_buffers_puntb(Mesh &m)
 {
+	// Temporary vertex buffer to be deallocated at the end of the function.
 	std::vector<Vertex_PUNTB> vertexes_buf(m.vertices.size());
 	for (usize i = 0; i < m.vertices.size(); i++)
 	{

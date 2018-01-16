@@ -32,7 +32,7 @@ main()
 
 	vec3 T = normalize(vec3(model * vec4(att_tangent,   0.0)));
 	vec3 B = normalize(vec3(model * vec4(att_bitangent, 0.0)));
-	vec3 N = normalize(vec3(model * vec4(att_normal,    0.0)));
+	vec3 N = normalize(vs_out.frag_normal);
 
 	vs_out.TBN = mat3(T, B, N);
 
@@ -98,12 +98,15 @@ struct DebugGuiState
 uniform DebugGuiState debug_gui_state;
 
 vec3
-calc_point_light(PointLight light, vec3 normal)
+calc_point_light(PointLight light, vec3 normal, vec3 surface_normal)
 {
     vec3 diffuse_color = vec3(texture(material.texture_diffuse1, vs_out.frag_tex_coords));
     vec3 specular_color = vec3(texture(material.texture_specular1, vs_out.frag_tex_coords));
 
     vec3 frag_to_light = normalize(light.position - vs_out.frag_world_pos);
+
+	// if (dot(frag_to_light, normal) < 0.0)
+
     vec3 frag_to_view = normalize(view_position - vs_out.frag_world_pos);
     vec3 halfway_dir = normalize(frag_to_light + frag_to_view);
 
@@ -112,16 +115,22 @@ calc_point_light(PointLight light, vec3 normal)
 
     vec3 ambient = light.ambient * diffuse_color * vec3(0.04f);
 
-    float diffuse_strength = max(0.0f, dot(frag_to_light, normal));
+	// This is necessary because the normal from the normal map may have a positive dot product with the
+	// frag_to_light vector even if the surface normal doesn't.
+	float evaluate_normal_map = ceil(dot(surface_normal, frag_to_light));
+
+    float diffuse_strength = max(0.0f, dot(frag_to_light, normal)) * evaluate_normal_map;
     vec3 diffuse = light.diffuse * diffuse_strength * diffuse_color;
 
-    float specular_strength = pow(max(0.0f, dot(halfway_dir, normal)), material.shininess);
+	float specular_strength = pow(max(0.0f, dot(halfway_dir, normal)), material.shininess) * evaluate_normal_map;
+
     vec3 specular = light.specular * (specular_strength * specular_color);
 
     ambient *= attenuation;
     diffuse *= attenuation;
     specular *= attenuation;
 
+    // return (ambient + diffuse + specular);
     return (ambient + diffuse + specular);
 }
 
@@ -141,14 +150,15 @@ main()
 	}
 
     vec3 light_contributions = vec3(0);
+	vec3 surface_normal = vs_out.frag_normal;
 
     for (int i = 0; i < NUM_POINT_LIGHTS; ++i)
-        light_contributions += calc_point_light(point_lights[i], normal);
+        light_contributions += calc_point_light(point_lights[i], normal, surface_normal);
 
     frag_color = vec4(light_contributions, 1.0f);
 
     // Apply gamma correction
-    float gamma = 2.2;
+    const float gamma = 2.2;
     frag_color.rgb = pow(frag_color.rgb, vec3(1.0/gamma));
 }
 

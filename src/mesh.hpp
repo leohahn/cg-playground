@@ -47,16 +47,6 @@ static_assert(sizeof(Vertex_PUNTB) == sizeof(f32)*14, "Vertex_PUNTB should be pa
 
 struct Mesh
 {
-	//
-	// IMPORTANT: Watch JonBlow's video to understand how to better create a Triangle Mesh struct.
-	// https://www.youtube.com/watch?v=g2F0Yg17ZfU
-	//
-    // std::vector<Vertex>             vertexes;
-	// std::vector<Face>               faces;
-	std::vector<std::vector<isize>> faces_textures;
-	// std::vector<isize>              faces_tangent;
-	// std::vector<isize>              faces_bitangent;
-
 	std::vector<Vec3f>              vertices;
 	std::vector<Vec2f>              tex_coords;
 	std::vector<Vec3f>              normals;
@@ -64,10 +54,13 @@ struct Mesh
 	std::vector<Vec3f>              bitangents;
 
 	std::vector<Face>               faces;
+	std::vector<std::vector<isize>> faces_textures; // TODO: find eventually a better format than this
 	// std::vector<TriangleList>       triangle_lists;
 
     std::vector<Texture>            textures;
     u32 vao, vbo, ebo;
+
+	~Mesh();
 
 	inline isize number_of_indices() const {return faces.size() * 3;}
 
