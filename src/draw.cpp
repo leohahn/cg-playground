@@ -8,7 +8,7 @@
 lt_internal lt::Logger logger("draw");
 
 void
-draw_mesh(const Mesh &mesh, Shader &shader, GLContext &context)
+draw_mesh(const Mesh *mesh, Shader &shader, GLContext &context)
 {
     using std::string;
 
@@ -18,11 +18,11 @@ draw_mesh(const Mesh &mesh, Shader &shader, GLContext &context)
 
 	bool use_normal_map = false;
 
-    for (usize i = 0; i < mesh.textures.size(); i++)
+    for (usize i = 0; i < mesh->textures.size(); i++)
     {
         glActiveTexture(GL_TEXTURE0 + i); // activate proper texture unit before binding
         // retrieve texture number (the N in diffuse_textureN)
-        string name = mesh.textures[i].type;
+        string name = mesh->textures[i].type;
         string number;
         if (name == "texture_diffuse")
             number = std::to_string(diffuse_nr++);
@@ -37,14 +37,14 @@ draw_mesh(const Mesh &mesh, Shader &shader, GLContext &context)
             LT_Assert(false);
 
         shader.set1i(("material." + name + number).c_str(), i);
-        glBindTexture(GL_TEXTURE_2D, mesh.textures[i].id);
+        glBindTexture(GL_TEXTURE_2D, mesh->textures[i].id);
     }
 
 	shader.set1i("material.use_normal_map", use_normal_map);
 
     // draw mesh
-    context.bind_vao(mesh.vao);
-    glDrawElements(GL_TRIANGLES, mesh.number_of_indices(), GL_UNSIGNED_INT, 0);
+    context.bind_vao(mesh->vao);
+    glDrawElements(GL_TRIANGLES, mesh->number_of_indices(), GL_UNSIGNED_INT, 0);
     context.unbind_vao();
 
     // always good practice to set everything back to defaults once configured.
@@ -52,16 +52,16 @@ draw_mesh(const Mesh &mesh, Shader &shader, GLContext &context)
 }
 
 void
-draw_skybox(const Mesh &mesh, Shader &shader, const Mat4f &view, GLContext &context)
+draw_skybox(const Mesh *mesh, Shader &shader, const Mat4f &view, GLContext &context)
 {
 	glDepthFunc(GL_LEQUAL);
 
 	context.use_shader(shader);
 	shader.set_matrix("view", view);
 
-    context.bind_vao(mesh.vao);
-	glBindTexture(GL_TEXTURE_CUBE_MAP, mesh.textures[0].id);
-    glDrawElements(GL_TRIANGLES, mesh.number_of_indices(), GL_UNSIGNED_INT, 0);
+    context.bind_vao(mesh->vao);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, mesh->textures[0].id);
+    glDrawElements(GL_TRIANGLES, mesh->number_of_indices(), GL_UNSIGNED_INT, 0);
     context.unbind_vao();
 
 	glDepthFunc(GL_LESS);

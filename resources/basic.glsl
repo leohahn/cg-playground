@@ -105,8 +105,6 @@ calc_point_light(PointLight light, vec3 normal, vec3 surface_normal)
 
     vec3 frag_to_light = normalize(light.position - vs_out.frag_world_pos);
 
-	// if (dot(frag_to_light, normal) < 0.0)
-
     vec3 frag_to_view = normalize(view_position - vs_out.frag_world_pos);
     vec3 halfway_dir = normalize(frag_to_light + frag_to_view);
 
@@ -115,22 +113,21 @@ calc_point_light(PointLight light, vec3 normal, vec3 surface_normal)
 
     vec3 ambient = light.ambient * diffuse_color * vec3(0.04f);
 
-	// This is necessary because the normal from the normal map may have a positive dot product with the
+	// NOTE: This is necessary because the normal from the normal map may have a positive dot product with the
 	// frag_to_light vector even if the surface normal doesn't.
 	float evaluate_normal_map = ceil(dot(surface_normal, frag_to_light));
 
     float diffuse_strength = max(0.0f, dot(frag_to_light, normal)) * evaluate_normal_map;
     vec3 diffuse = light.diffuse * diffuse_strength * diffuse_color;
 
-	float specular_strength = pow(max(0.0f, dot(halfway_dir, normal)), material.shininess) * evaluate_normal_map;
-
+	float specular_strength = pow(max(0.0f, dot(halfway_dir, normal)), material.shininess) *
+		evaluate_normal_map;
     vec3 specular = light.specular * (specular_strength * specular_color);
 
     ambient *= attenuation;
     diffuse *= attenuation;
     specular *= attenuation;
 
-    // return (ambient + diffuse + specular);
     return (ambient + diffuse + specular);
 }
 
