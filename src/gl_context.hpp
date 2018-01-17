@@ -34,6 +34,7 @@ struct GLContext
     inline void
     unbind_vao()
     {
+		bound_vao = 0;
         glBindVertexArray(0);
     }
 

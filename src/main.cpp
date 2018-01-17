@@ -24,6 +24,7 @@
 #include "debug_gui.hpp"
 #include "resources.hpp"
 #include "stb_image.h"
+#include "entities.hpp"
 
 lt_global_variable lt::Logger logger("main");
 lt_global_variable bool g_display_debug_gui = true;
@@ -56,8 +57,7 @@ framebuffer_size_callback(GLFWwindow *w, i32 width, i32 height)
 lt_internal void
 update_key_state(Key &key, bool key_pressed)
 {
-	if ((key_pressed && key.is_pressed) ||
-		(!key_pressed && !key.is_pressed))
+	if ((key_pressed && key.is_pressed) || (!key_pressed && !key.is_pressed))
 	{
 		key.last_transition = Key::Transition_None;
 	}
@@ -179,38 +179,6 @@ game_update(Key *kb, Camera& camera, f64 delta)
     if (kb[GLFW_KEY_DOWN].is_pressed)
         camera.rotate(Camera::RotationAxis::Right, -delta);
 }
-
-struct TexturedCube
-{
-    Vec3f      position;
-    Vec3f      scaling;
-    f32        shininess;
-    Mesh      *mesh;
-
-    explicit TexturedCube(Resources &resources, Vec3f position, Vec3f scaling, f32 shininess,
-						  u32 diffuse_texture, u32 specular_texture, u32 normal_texture = 0)
-        : position(position)
-        , scaling(scaling)
-        , shininess(shininess)
-        , mesh(resources.load_unit_cube(diffuse_texture, specular_texture, normal_texture))
-    {}
-};
-
-struct PointLight
-{
-    Vec3f     position;
-    Vec3f     scaling;
-    Vec3f     color;
-    Mesh     *mesh;
-
-    explicit PointLight(Resources &resources, Vec3f position, Vec3f scaling, Vec3f color,
-						u32 diffuse_texture, u32 specular_texture)
-        : position(position)
-        , scaling(scaling)
-        , color(color)
-        , mesh(resources.load_unit_cube(diffuse_texture, specular_texture))
-    {}
-};
 
 enum TextureFormat
 {
@@ -391,17 +359,15 @@ main(void)
     Camera camera(Vec3f(0.0f, 5.0f, 10.0f), Vec3f(0.0f, 0.0f, -1.0f), Vec3f(0.0f, 1.0f, 0.0f),
                   FIELD_OF_VIEW, ASPECT_RATIO, MOVE_SPEED, ROTATION_SPEED);
 
-    u32 box_texture_diffuse = load_texture("155.JPG", TextureFormat_SRGB, PixelFormat_RGB);
-    u32 box_texture_normal = load_texture("155_norm.JPG", TextureFormat_RGB, PixelFormat_RGB);
+    const u32 box_texture_diffuse = load_texture("155.JPG", TextureFormat_SRGB, PixelFormat_RGB);
+    const u32 box_texture_normal = load_texture("155_norm.JPG", TextureFormat_RGB, PixelFormat_RGB);
 
-    u32 floor_texture_diffuse = load_texture("177.JPG", TextureFormat_SRGB, PixelFormat_RGB);
-    u32 floor_texture_normal = load_texture("177_norm.JPG", TextureFormat_RGB, PixelFormat_RGB);
+    const u32 floor_texture_diffuse = load_texture("177.JPG", TextureFormat_SRGB, PixelFormat_RGB);
+    const u32 floor_texture_normal = load_texture("177_norm.JPG", TextureFormat_RGB, PixelFormat_RGB);
 
 	// Wall textures
-    u32 wall_texture_diffuse = load_texture("brickwall.jpg", TextureFormat_SRGB,
-											   PixelFormat_RGB);
-    u32 wall_texture_normal = load_texture("brickwall_normal.jpg", TextureFormat_RGB,
-											  PixelFormat_RGB);
+    const u32 wall_texture_diffuse = load_texture("brickwall.jpg", TextureFormat_SRGB, PixelFormat_RGB);
+    const u32 wall_texture_normal = load_texture("brickwall_normal.jpg", TextureFormat_RGB, PixelFormat_RGB);
 
 	const char *skybox_faces[] = {
 		"right.jpg", // pos x
@@ -411,36 +377,74 @@ main(void)
 		"back.jpg", // pos z
 		"front.jpg", // neg z
 	};
-	u32 skybox = load_cubemap_texture(skybox_faces, LT_Count(skybox_faces), TextureFormat_RGB, PixelFormat_RGB);
 
-	u32 shadow_map = create_shadow_map();
+	const u32 skybox = load_cubemap_texture(skybox_faces, LT_Count(skybox_faces),
+											TextureFormat_RGB, PixelFormat_RGB);
+	const u32 shadow_map = create_shadow_map();
 
-    TexturedCube cubes[4] = {
-        TexturedCube(resources, Vec3f(0.0f, 1.0f, 0.0f), Vec3f(1), 128,
-					 // box_texture_diffuse, box_texture_specular, box_texture_normal),
-					 box_texture_diffuse, box_texture_diffuse, box_texture_normal),
-        TexturedCube(resources, Vec3f(4.0f, 3.0f, 0.0f), Vec3f(1), 128,
-					 // box_texture_diffuse, box_texture_specular, box_texture_normal),
-					 box_texture_diffuse, box_texture_diffuse, box_texture_normal),
-        TexturedCube(resources, Vec3f(1.0f, 5.0f, 2.0f), Vec3f(1), 128,
-					 // box_texture_diffuse, box_texture_specular, box_texture_normal),
-					 box_texture_diffuse, box_texture_diffuse, box_texture_normal),
-        TexturedCube(resources, Vec3f(-5.0f, 2.0f, -1.0f), Vec3f(1), 128,
-					 // box_texture_diffuse, box_texture_specular, box_texture_normal),
-					 box_texture_diffuse, box_texture_diffuse, box_texture_normal),
-    };
+	// ----------------------------------------------------------
+	// Entities
+	// ----------------------------------------------------------
+	Entities entities = {};
 
-    PointLight lights[4] = {
-        PointLight(resources, Vec3f(3.0f, 5.0f, 0.0f), Vec3f(0.1f, 0.1f, 0.1f), Vec3f(1.0f, 1.0f, 1.0f), 0, 0),
-        PointLight(resources, Vec3f(7.0f, 2.0f, 0.0f), Vec3f(0.1f, 0.1f, 0.1f), Vec3f(1.0f, 1.0f, 1.0f), 0, 0),
-        PointLight(resources, Vec3f(0.0f, 3.0f, 0.0f), Vec3f(0.1f, 0.1f, 0.1f), Vec3f(1.0f, 1.0f, 1.0f), 0, 0),
-        PointLight(resources, Vec3f(3.0f, 4.0f, 2.0f), Vec3f(0.1f, 0.1f, 0.1f), Vec3f(1.0f, 1.0f, 1.0f), 0, 0),
-    };
+	// cubes
+	const Vec3f positions[4] = {
+		Vec3f(0.0f, 2.0f, 0.0f),
+		Vec3f(4.0f, 3.0f, 0.0f),
+		Vec3f(1.0f, 5.0f, 2.0f),
+		Vec3f(-5.0f, 2.0f, -1.0f),
+	};
+	const Vec3f scales[4] = {
+		Vec3f(1),
+		Vec3f(1),
+		Vec3f(1),
+		Vec3f(1),
+	};
+	for (i32 i = 0; i < 4; i++)
+	{
+		Mat4f transform;
+		transform = lt::translation(transform, positions[i]);
+		transform = lt::scale(transform, scales[i]);
+		create_textured_cube(&entities, &resources, &basic_shader, transform, 128,
+							 box_texture_diffuse, box_texture_diffuse, box_texture_normal);
+	}
 
-    Mesh *floor_mesh = resources.load_unit_plane(10.0f, floor_texture_diffuse, floor_texture_diffuse,
-												floor_texture_normal);
-    Mesh *wall_mesh = resources.load_unit_plane(5.0f, wall_texture_diffuse,
-											   wall_texture_diffuse, wall_texture_normal);
+	// light
+	{
+		LightEmmiter le = {};
+		le.position = Vec3f(3.0f, 5.0f, 0.0f);
+		le.ambient = Vec3f(0.1f);
+		le.diffuse = Vec3f(0.7f);
+		le.specular = Vec3f(1.0f);
+		le.constant = 1.0f;
+		le.linear = 0.35;
+		le.quadratic = 0.44f;
+		le.shader = &basic_shader;
+
+		Mat4f transform;
+		transform = lt::translation(transform, Vec3f(3, 5, 0));
+		transform = lt::scale(transform, Vec3f(0.1f));
+
+		create_point_light(&entities, &resources, &light_shader, transform, le, 0, 0);
+	}
+	// WALL
+	{
+		Mat4f transform(1);
+		transform = lt::translation(transform, Vec3f(-10, 0, 0));
+		transform = lt::rotation_y(transform, 90.0f);
+		transform = lt::rotation_x(transform, 90.0f);
+		transform = lt::scale(transform, Vec3f(8.0f));
+		create_plane(&entities, &resources, &basic_shader, transform, 32, 5.0f,
+					 wall_texture_diffuse, wall_texture_diffuse, wall_texture_normal);
+	}
+	// FLOOR
+	{
+		Mat4f transform(1);
+		transform = lt::scale(transform, Vec3f(20.0f));
+		create_plane(&entities, &resources, &basic_shader, transform, 32, 10.0f,
+					 floor_texture_diffuse, floor_texture_diffuse, floor_texture_normal);
+	}
+	// Skybox
 	Mesh *skybox_mesh = resources.load_cubemap(skybox);
 
     light_shader.setup_projection_matrix(ASPECT_RATIO, context);
@@ -504,81 +508,10 @@ main(void)
             loops++;
         }
 
-        // TODO: Eventually call a render function here.
-        {
-            context.use_shader(basic_shader);
+		context.use_shader(basic_shader);
+		basic_shader.set1i("debug_gui_state.enable_normal_mapping", g_debug_gui_state.enable_normal_mapping);
 
-			basic_shader.set1i("debug_gui_state.enable_normal_mapping", g_debug_gui_state.enable_normal_mapping);
-            basic_shader.set_matrix("view", camera.view_matrix());
-            basic_shader.set3f("view_position", camera.frustum.position);
-
-            for (isize i = 0; i < 4; ++i)
-            {
-                std::string i_str = std::to_string(i);
-                basic_shader.set3f(("point_lights["+i_str+"].position").c_str(), lights[i].position);
-                basic_shader.set3f(("point_lights["+i_str+"].ambient").c_str(), Vec3f(0.10f));
-                basic_shader.set3f(("point_lights["+i_str+"].diffuse").c_str(), Vec3f(0.7f));
-                basic_shader.set3f(("point_lights["+i_str+"].specular").c_str(), Vec3f(1.0f));
-                basic_shader.set1f(("point_lights["+i_str+"].constant").c_str(), 1.0f);
-                basic_shader.set1f(("point_lights["+i_str+"].linear").c_str(), 0.35f);
-                basic_shader.set1f(("point_lights["+i_str+"].quadratic").c_str(), 0.44f);
-            }
-            for (isize i = 0; i < 4; ++i)
-            {
-                Mat4f box_model(1.0f);
-                box_model = lt::scale(box_model, cubes[i].scaling);
-                box_model = lt::translation(box_model, cubes[i].position);
-
-                basic_shader.set_matrix("model", box_model);
-                basic_shader.set1f("material.shininess", cubes[i].shininess);
-
-                draw_mesh(cubes[i].mesh, basic_shader, context);
-            }
-
-            // FLOOR
-            Mat4f floor_model(1);
-            floor_model = lt::scale(floor_model, Vec3f(20.0f));
-            basic_shader.set_matrix("model", floor_model);
-
-            // for (isize i = 0; i < 4; ++i)
-            //     basic_shader.set3f(("point_lights[" + std::to_string(i) + "].quadratic").c_str(),
-            //                        Vec3f(0.5f, 0.5f, 0.5f));
-
-            basic_shader.set1f("material.shininess", 32);
-
-            draw_mesh(floor_mesh, basic_shader, context);
-
-            // WALL
-            Mat4f wall_model(1);
-            wall_model = lt::translation(wall_model, Vec3f(-10, 0, 0));
-            wall_model = lt::rotation_y(wall_model, 90.0f);
-            wall_model = lt::rotation_x(wall_model, 90.0f);
-            wall_model = lt::scale(wall_model, Vec3f(8.0f));
-            basic_shader.set_matrix("model", wall_model);
-
-            // for (isize i = 0; i < 4; ++i)
-            //     basic_shader.set3f(("point_lights[" + std::to_string(i) + "].quadratic").c_str(),
-            //                        Vec3f(0.5f, 0.5f, 0.5f));
-            basic_shader.set1f("material.shininess", 64);
-
-            draw_mesh(wall_mesh, basic_shader, context);
-        }
-        {
-            context.use_shader(light_shader);
-
-            for (isize i = 0; i < 1; ++i)
-            {
-                Mat4f model = lt::translation(Mat4f(1.0f), lights[i].position);
-                model = lt::scale(model, lights[i].scaling);
-
-                light_shader.set_matrix("model", model);
-                light_shader.set_matrix("view", camera.view_matrix());
-
-                draw_mesh(lights[i].mesh, light_shader, context);
-            }
-        }
-
-		// Draw the skybox
+		draw_entities(entities, camera, context);
 		draw_skybox(skybox_mesh, skybox_shader, camera.view_matrix(), context);
 
 		if (g_display_debug_gui)

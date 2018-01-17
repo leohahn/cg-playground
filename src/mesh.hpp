@@ -68,9 +68,4 @@ struct Mesh
 	inline isize number_of_indices() const {return faces.size() * 3;}
 };
 
-// Mesh make_mesh_cubemap(u32 cubemap_texture);
-// Mesh make_mesh_unit_cube(u32 diffuse_texture, u32 specular_texture, u32 normal_texture = 0);
-// Mesh make_mesh_unit_plane(f32 tex_coords_scale, u32 diffuse_texture,
-// 						  u32 specular_texture, u32 normal_texture = 0);
-
 #endif // MESH_HPP
