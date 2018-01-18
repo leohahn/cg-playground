@@ -8,8 +8,8 @@ lt_global_variable lt::Logger logger("mesh");
 
 Mesh::~Mesh()
 {
-	// glDeleteBuffers(1, &vbo);
-	// glDeleteBuffers(1, &ebo);
-	// glDeleteVertexArrays(1, &vao);
+	glDeleteBuffers(1, &vbo);
+	glDeleteBuffers(1, &ebo);
+	glDeleteVertexArrays(1, &vao);
 }
 

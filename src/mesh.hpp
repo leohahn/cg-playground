@@ -8,17 +8,6 @@
 #include "lt_core.hpp"
 #include "lt_math.hpp"
 
-struct Vertex
-{
-    Vec3f position;
-    Vec2f tex_coords;
-    Vec3f normal;
-	Vec3f tangent;
-	Vec3f bitangent;
-};
-
-static_assert(sizeof(Vertex) == sizeof(f32) * 14, "Vertex should be packed.");
-
 struct Texture
 {
     u32 id;
@@ -34,16 +23,6 @@ typedef Vec3i Face;
 	
 // };
 
-struct Vertex_PUNTB
-{
-	Vec3f position;
-	Vec2f tex_coords;
-	Vec3f normal;
-	Vec3f tangent;
-	Vec3f bitangent;
-};
-
-static_assert(sizeof(Vertex_PUNTB) == sizeof(f32)*14, "Vertex_PUNTB should be packed.");
 
 struct Mesh
 {

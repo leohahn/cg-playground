@@ -151,7 +151,7 @@ create_window_and_set_context(const char *title, i32 width, i32 height)
 }
 
 void
-game_update(Key *kb, Camera& camera, f64 delta)
+game_update(Key *kb, Camera& camera, f64 delta, DebugGuiState *state)
 {
     // Move
     if (kb[GLFW_KEY_A].is_pressed)
@@ -178,6 +178,9 @@ game_update(Key *kb, Camera& camera, f64 delta)
 
     if (kb[GLFW_KEY_DOWN].is_pressed)
         camera.rotate(Camera::RotationAxis::Right, -delta);
+	
+	state->camera_pos = camera.frustum.position;
+	state->camera_front = camera.frustum.front.v;
 }
 
 enum TextureFormat
@@ -280,35 +283,6 @@ load_texture(const char *path, TextureFormat texture_format, PixelFormat pixel_f
 	return texture;
 }
 
-lt_internal u32
-create_shadow_map(i32 width, i32 height)
-{
-	// Create the texture
-	u32 depth_map;
-	glGenTextures(1, &depth_map);
-	glBindTexture(GL_TEXTURE_2D, depth_map);
-
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, width, height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT); 
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);  
-
-	// Attach texture to the framebuffer
-	u32 fbo;
-	glGenFramebuffers(1, &fbo);
-	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depth_map, 0);
-	glDrawBuffer(GL_NONE);
-	glReadBuffer(GL_NONE);
-
-	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-		logger.error("framebuffer not complete");
-
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-	return fbo;
-}
-
 struct DirectionalLight
 {
 	Vec3f direction;
@@ -357,14 +331,17 @@ main(void)
         skybox_shader.setup_projection_matrix(ASPECT_RATIO, context);
     });
     Shader shadow_map_shader("shadow_map.glsl");
-    // shadow_map_shader.on_recompilation([&] {
-    //     shadow_map_shader.setup_projection_matrix(ASPECT_RATIO, context);
-    // });
+    Shader shadow_map_render_shader("shadow_map_render.glsl");
 
     const f32 FIELD_OF_VIEW = 60.0f;
     const f32 MOVE_SPEED = 0.05f;
     const f32 ROTATION_SPEED = 0.02f;
-    Camera camera(Vec3f(0.0f, 5.0f, 10.0f), Vec3f(0.0f, 0.0f, -1.0f), Vec3f(0.0f, 1.0f, 0.0f),
+	// const Vec3f CAMERA_POSITION(0.0f, 5.0f, 10.0f);
+	const Vec3f CAMERA_POSITION(-15.47f, 24.12f, -28.7f);
+	// const Vec3f CAMERA_FRONT(0.0f, 0.0f, -1.0f);
+	const Vec3f CAMERA_FRONT(0.4f, -0.57f, 0.72f);
+	const Vec3f UP_WORLD(0.0f, 1.0f, 0.0f);
+    Camera camera(CAMERA_POSITION, CAMERA_FRONT, UP_WORLD,
                   FIELD_OF_VIEW, ASPECT_RATIO, MOVE_SPEED, ROTATION_SPEED);
 
     const u32 box_texture_diffuse = load_texture("155.JPG", TextureFormat_SRGB, PixelFormat_RGB);
@@ -390,7 +367,8 @@ main(void)
 											TextureFormat_RGB, PixelFormat_RGB);
 
 	const i32 shadow_map_width = 1024, shadow_map_height = 1024;
-	const u32 shadow_map = create_shadow_map(shadow_map_width, shadow_map_height);
+	ShadowMap shadow_map = create_shadow_map(shadow_map_width, shadow_map_height, &shadow_map_shader);
+	Mesh *shadow_map_surface = resources.load_shadow_map_render_surface(shadow_map.texture);
 
 	// ----------------------------------------------------------
 	// Entities
@@ -422,10 +400,13 @@ main(void)
 	// Light
 	//
 	DirectionalLight dir_light;
-	dir_light.direction = Vec3f(0, -1, 0);
+	dir_light.direction = Vec3f(0.4f, -0.57f, 0.72f);
 	dir_light.ambient = Vec3f(.2f);
 	dir_light.diffuse = Vec3f(1);
 	dir_light.specular = Vec3f(1);
+	const Vec3f dir_light_pos(-15.47f, 24.12f, -28.7f);
+
+	const Mat4f light_view = lt::look_at(dir_light_pos, dir_light_pos+dir_light.direction, Vec3f(0, 1, 0));
 
 	context.use_shader(basic_shader);
 	basic_shader.set3f("dir_light.direction", dir_light.direction);
@@ -435,9 +416,7 @@ main(void)
 
 	{
 		// Set the static light space uniform for the shadow map shader
-		const Vec3f light_pos(0, 10, 0);
-		const Mat4f light_projection = lt::orthographic(-10, 10, -10, 10, 1, 20);
-		const Mat4f light_view = lt::look_at(light_pos, light_pos + dir_light.direction, Vec3f(0, 1, 0));
+		const Mat4f light_projection = lt::orthographic(-30, 30, -30, 30, 1, 50);
 		const Mat4f light_space = light_projection * light_view;
 		context.use_shader(shadow_map_shader);
 		shadow_map_shader.set_matrix("light_space", light_space);
@@ -464,7 +443,6 @@ main(void)
 		Mat4f transform(1);
 		transform = lt::translation(transform, Vec3f(-10, 0, 0));
 		transform = lt::rotation_y(transform, 90.0f);
-		transform = lt::rotation_x(transform, 90.0f);
 		transform = lt::scale(transform, Vec3f(8.0f));
 		create_plane(&entities, &resources, &basic_shader, transform, 32, 5.0f,
 					 nullptr, wall_texture_diffuse, wall_texture_diffuse, wall_texture_normal);
@@ -472,12 +450,14 @@ main(void)
 	// FLOOR
 	{
 		Mat4f transform(1);
+		transform = lt::rotation_x(transform, -90);
 		transform = lt::scale(transform, Vec3f(20.0f));
+
 		create_plane(&entities, &resources, &basic_shader, transform, 32, 10.0f,
 					 nullptr, floor_texture_diffuse, floor_texture_diffuse, floor_texture_normal);
 	}
 	// Skybox
-	Mesh *skybox_mesh = resources.load_cubemap(skybox);
+	const Mesh *skybox_mesh = resources.load_cubemap(skybox);
 
     light_shader.setup_projection_matrix(ASPECT_RATIO, context);
     basic_shader.setup_projection_matrix(ASPECT_RATIO, context);
@@ -534,7 +514,7 @@ main(void)
         {
             delta = std::min(total_delta, MAX_DELTA_TIME);
 
-            game_update(g_keyboard, camera, delta);
+            game_update(g_keyboard, camera, delta, &g_debug_gui_state);
 
             total_delta -= delta;
             loops++;
@@ -542,19 +522,27 @@ main(void)
 
 		// Render first to depth map
 		glViewport(0, 0, shadow_map_width, shadow_map_height);
-		glBindFramebuffer(GL_FRAMEBUFFER, shadow_map);
+		glBindFramebuffer(GL_FRAMEBUFFER, shadow_map.fbo); // TODO: move to GLContext
 		glClear(GL_DEPTH_BUFFER_BIT);
-
+		draw_entities_for_shadow_map(entities, light_view, dir_light_pos, shadow_map, context);
 
 		// Actual rendering
 		glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		context.use_shader(basic_shader);
-		basic_shader.set1i("debug_gui_state.enable_normal_mapping", g_debug_gui_state.enable_normal_mapping);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		draw_entities(entities, camera, context);
-		draw_skybox(skybox_mesh, skybox_shader, camera.view_matrix(), context);
+		if (g_debug_gui_state.draw_shadow_map)
+		{
+			// Draws the shadowmap instead of the scene
+			draw_shadow_map(shadow_map_surface, shadow_map_render_shader, context);
+		}
+		else
+		{
+			context.use_shader(basic_shader);
+			basic_shader.set1i("debug_gui_state.enable_normal_mapping", g_debug_gui_state.enable_normal_mapping);
+			draw_entities(entities, camera, context);
+			draw_skybox(skybox_mesh, skybox_shader, camera.view_matrix(), context);
+		}
 
 		if (g_display_debug_gui)
 		{

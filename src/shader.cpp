@@ -18,6 +18,8 @@ make_program(const char* shader_name)
 {
     using std::string;
 
+	logger.log("Making shader program for ", shader_name);
+
     // Fetch source codes from each shader
     string shader_src_path = string(RESOURCES_PATH) + string(shader_name);
     FileContents *shader_src = file_read_contents(shader_src_path.c_str());
@@ -26,7 +28,7 @@ make_program(const char* shader_name)
 
     if (shader_src->error != FileError_None)
     {
-        fprintf(stderr, "Error reading shader source from %s\n", shader_src_path.c_str());
+        logger.error("Error reading shader source from ", shader_src_path);
         file_free_contents(shader_src);
         return 0;
     }
@@ -40,7 +42,7 @@ make_program(const char* shader_name)
 
     if (vertex_shader == 0 || fragment_shader == 0)
     {
-        fprintf(stderr, "Error creating shaders (glCreateShader)\n");
+        logger.error("Error creating shaders (glCreateShader)\n");
         file_free_contents(shader_src);
         glDeleteShader(vertex_shader);
         glDeleteShader(fragment_shader);
@@ -72,7 +74,7 @@ make_program(const char* shader_name)
     if (!success)
     {
         glGetShaderInfoLog(vertex_shader, 512, NULL, info);
-        printf("ERROR: Vertex shader compilation failed:\n");
+        logger.error("Vertex shader compilation failed:");
         printf("%s\n", info);
         goto error_cleanup;
     }
@@ -83,7 +85,7 @@ make_program(const char* shader_name)
     if (!success)
     {
         glGetShaderInfoLog(fragment_shader, 512, NULL, info);
-        printf("ERROR: Fragment shader compilation failed:\n");
+        logger.error("Fragment shader compilation failed:");
         printf("%s\n", info);
         goto error_cleanup;
     }
@@ -97,7 +99,7 @@ make_program(const char* shader_name)
     if (!success)
     {
         glGetShaderInfoLog(fragment_shader, 512, nullptr, info);
-        printf("ERROR: Shader linking failed:\n");
+        logger.error("Shader linking failed:");
         printf("%s\n", info);
         goto error_cleanup;
     }
@@ -146,6 +148,7 @@ void
 Shader::setup_projection_matrix(f32 aspect_ratio, GLContext &context)
 {
     const Mat4f projection = lt::perspective(60.0f, aspect_ratio, 0.1f, 100.0f);
+	// const Mat4f projection = lt::orthographic(-10, 10, -20, 20, 0.1, 50);
 
     context.use_shader(*this);
     glUniformMatrix4fv(get_location("projection"), 1, GL_FALSE, projection.data());

@@ -9,11 +9,36 @@ const i32 MAX_NUM_MESHES = 50;
 
 struct Mesh;
 
-enum StaticResource
+// enum StaticResource
+// {
+// 	StaticResource_UnitPlane,
+// 	StaticResource_UnitCube,
+// };
+
+// enum VertexFormat
+// {
+// 	VertexF
+// };
+
+struct Vertex_PU
 {
-	StaticResource_UnitPlane,
-	StaticResource_UnitCube,
+	Vec3f position;
+	Vec2f tex_coords;
 };
+
+static_assert(sizeof(Vertex_PU) == sizeof(f32)*5, "Vertex_PU should be packed.");
+
+struct Vertex_PUNTB
+{
+	Vec3f position;
+	Vec2f tex_coords;
+	Vec3f normal;
+	Vec3f tangent;
+	Vec3f bitangent;
+};
+
+static_assert(sizeof(Vertex_PUNTB) == sizeof(f32)*14, "Vertex_PUNTB should be packed.");
+
 
 struct Resources
 {
@@ -23,6 +48,8 @@ struct Resources
 	Mesh *load_unit_cube(u32 diffuse_texture, u32 specular_texture, u32 normal_texture = 0);
 	Mesh *load_unit_plane(f32 tex_coords_scale, u32 diffuse_texture,
 						  u32 specular_texture, u32 normal_texture = 0);
+	Mesh *load_shadow_map_render_surface(u32 shadow_map_texture);
+
 private:
 	isize m_mesh_id = 0;
 	inline isize get_new_id()

@@ -88,10 +88,10 @@ static_assert(LT_Count(UNIT_CUBE_VERTICES) == LT_Count(UNIT_CUBE_TEX_COORDS),
 
 const Vec3f UNIT_PLANE_VERTICES[] =
 {
-    Vec3f(-1.0f,  0.0f,  1.0f), // 0
-    Vec3f( 1.0f,  0.0f,  1.0f), // 1
-    Vec3f( 1.0f,  0.0f, -1.0f), // 2
-    Vec3f(-1.0f,  0.0f, -1.0f), // 3
+    Vec3f(-1.0f, -1.0f,  0.0f), // 0
+    Vec3f( 1.0f, -1.0f,  0.0f), // 1
+    Vec3f( 1.0f,  1.0f,  0.0f), // 2
+    Vec3f(-1.0f,  1.0f,  0.0f), // 3
 };
 
 const Vec2f UNIT_PLANE_TEX_COORDS[] =
@@ -109,6 +109,39 @@ lt_internal const u32 UNIT_PLANE_INDICES[] =
 {
     0, 1, 2, 2, 3, 0
 };
+
+lt_internal void
+setup_mesh_buffers_pu(Mesh &m)
+{
+	// Temporary vertex buffer to be deallocated at the end of the function.
+	std::vector<Vertex_PU> vertexes_buf(m.vertices.size());
+	for (usize i = 0; i < m.vertices.size(); i++)
+	{
+		vertexes_buf[i].position = m.vertices[i];
+		vertexes_buf[i].tex_coords = m.tex_coords[i];
+	}	
+
+    glGenVertexArrays(1, &m.vao);
+    glGenBuffers(1, &m.vbo);
+    glGenBuffers(1, &m.ebo);
+		
+    glBindVertexArray(m.vao);
+
+    glBindBuffer(GL_ARRAY_BUFFER, m.vbo);
+    glBufferData(GL_ARRAY_BUFFER, vertexes_buf.size() * sizeof(Vertex_PU), &vertexes_buf[0], GL_STATIC_DRAW);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m.ebo);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, m.faces.size() * sizeof(Face), &m.faces[0], GL_STATIC_DRAW);
+
+    // vertex positions
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex_PU), (void*)offsetof(Vertex_PU, position));
+    glEnableVertexAttribArray(0);
+    // vertex texture coords
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex_PU), (void*)offsetof(Vertex_PU, tex_coords));
+    glEnableVertexAttribArray(1);
+
+    glBindVertexArray(0);
+}
 
 lt_internal void
 setup_mesh_buffers_p(Mesh &m)
@@ -159,19 +192,24 @@ setup_mesh_buffers_puntb(Mesh &m)
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, m.faces.size() * sizeof(Face), &m.faces[0], GL_STATIC_DRAW);
 
     // vertex positions
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex_PUNTB, position));
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex_PUNTB),
+						  (void*)offsetof(Vertex_PUNTB, position));
     glEnableVertexAttribArray(0);
     // vertex texture coords
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex_PUNTB, tex_coords));
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex_PUNTB),
+						  (void*)offsetof(Vertex_PUNTB, tex_coords));
     glEnableVertexAttribArray(1);
     // vertex normals
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex_PUNTB, normal));
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex_PUNTB),
+						  (void*)offsetof(Vertex_PUNTB, normal));
     glEnableVertexAttribArray(2);
     // vertex tangents
-    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex_PUNTB, tangent));
+    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex_PUNTB),
+						  (void*)offsetof(Vertex_PUNTB, tangent));
     glEnableVertexAttribArray(3);
     // vertex bitangents
-    glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex_PUNTB, bitangent));
+    glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex_PUNTB),
+						  (void*)offsetof(Vertex_PUNTB, bitangent));
     glEnableVertexAttribArray(4);
 
     glBindVertexArray(0);
@@ -201,6 +239,43 @@ Resources::load_cubemap(u32 cubemap_texture)
 
 	setup_mesh_buffers_p(*mesh);
 	return mesh;
+}
+
+Mesh *
+Resources::load_shadow_map_render_surface(u32 shadow_map_texture)
+{
+	const i64 this_mesh_id = get_new_id();
+	const isize NUM_VERTICES = LT_Count(UNIT_PLANE_VERTICES);
+	const isize NUM_INDICES = LT_Count(UNIT_PLANE_INDICES);
+
+	Mesh *mesh = &meshes[this_mesh_id];
+	mesh->id = this_mesh_id;
+	mesh->vertices = std::vector<Vec3f>(NUM_VERTICES);
+	mesh->tex_coords = std::vector<Vec2f>(NUM_VERTICES);
+
+	// Add all textures to the mesh
+	mesh->textures.push_back(Texture(shadow_map_texture, "texture_shadow_map"));
+
+	// Add all only the positions
+	for (usize i = 0; i < NUM_VERTICES; i++)
+	{
+		mesh->vertices[i] = UNIT_PLANE_VERTICES[i];
+		mesh->tex_coords[i] = UNIT_PLANE_TEX_COORDS[i];
+	}
+
+	for (usize i = 0; i < NUM_INDICES; i+=3)
+	{
+		Face face = {};
+		face.val[0] = UNIT_PLANE_INDICES[i];
+		face.val[1] = UNIT_PLANE_INDICES[i+1];
+		face.val[2] = UNIT_PLANE_INDICES[i+2];
+
+		mesh->faces.push_back(face);
+		mesh->faces_textures.push_back(std::vector<isize>{0, 1, 2});
+	}
+
+	setup_mesh_buffers_pu(*mesh);
+    return mesh;
 }
 
 Mesh *
