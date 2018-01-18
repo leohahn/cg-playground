@@ -309,6 +309,14 @@ create_shadow_map(i32 width, i32 height)
 	return fbo;
 }
 
+struct DirectionalLight
+{
+	Vec3f direction;
+	Vec3f ambient;
+    Vec3f diffuse;
+    Vec3f specular;
+};
+
 int
 main(void)
 {
@@ -333,20 +341,25 @@ main(void)
     GLContext context;
 	Resources resources = {};
 
+	//
+	// Load shaders
+	//
     Shader light_shader("light.glsl");
     light_shader.on_recompilation([&] {
         light_shader.setup_projection_matrix(ASPECT_RATIO, context);
     });
-
     Shader basic_shader("basic.glsl");
     basic_shader.on_recompilation([&] {
         basic_shader.setup_projection_matrix(ASPECT_RATIO, context);
     });
-
     Shader skybox_shader("skybox.glsl");
     skybox_shader.on_recompilation([&] {
         skybox_shader.setup_projection_matrix(ASPECT_RATIO, context);
     });
+    Shader shadow_map_shader("shadow_map.glsl");
+    // shadow_map_shader.on_recompilation([&] {
+    //     shadow_map_shader.setup_projection_matrix(ASPECT_RATIO, context);
+    // });
 
     const f32 FIELD_OF_VIEW = 60.0f;
     const f32 MOVE_SPEED = 0.05f;
@@ -403,9 +416,32 @@ main(void)
 		transform = lt::translation(transform, positions[i]);
 		transform = lt::scale(transform, scales[i]);
 		create_textured_cube(&entities, &resources, &basic_shader, transform, 128,
-							 box_texture_diffuse, box_texture_diffuse, box_texture_normal);
+							 nullptr, box_texture_diffuse, box_texture_diffuse, box_texture_normal);
 	}
-	// light
+	//
+	// Light
+	//
+	DirectionalLight dir_light;
+	dir_light.direction = Vec3f(0, -1, 0);
+	dir_light.ambient = Vec3f(.2f);
+	dir_light.diffuse = Vec3f(1);
+	dir_light.specular = Vec3f(1);
+
+	context.use_shader(basic_shader);
+	basic_shader.set3f("dir_light.direction", dir_light.direction);
+	basic_shader.set3f("dir_light.ambient", dir_light.ambient);
+	basic_shader.set3f("dir_light.diffuse", dir_light.diffuse);
+	basic_shader.set3f("dir_light.specular", dir_light.specular);
+
+	{
+		// Set the static light space uniform for the shadow map shader
+		const Vec3f light_pos(0, 10, 0);
+		const Mat4f light_projection = lt::orthographic(-10, 10, -10, 10, 1, 20);
+		const Mat4f light_view = lt::look_at(light_pos, light_pos + dir_light.direction, Vec3f(0, 1, 0));
+		const Mat4f light_space = light_projection * light_view;
+		context.use_shader(shadow_map_shader);
+		shadow_map_shader.set_matrix("light_space", light_space);
+	}
 	{
 		LightEmmiter le = {};
 		le.position = Vec3f(3.0f, 5.0f, 0.0f);
@@ -421,7 +457,7 @@ main(void)
 		transform = lt::translation(transform, Vec3f(3, 5, 0));
 		transform = lt::scale(transform, Vec3f(0.1f));
 
-		create_point_light(&entities, &resources, &light_shader, transform, le, 0, 0);
+		create_point_light(&entities, &resources, &light_shader, transform, le, nullptr, 0, 0);
 	}
 	// WALL
 	{
@@ -431,14 +467,14 @@ main(void)
 		transform = lt::rotation_x(transform, 90.0f);
 		transform = lt::scale(transform, Vec3f(8.0f));
 		create_plane(&entities, &resources, &basic_shader, transform, 32, 5.0f,
-					 wall_texture_diffuse, wall_texture_diffuse, wall_texture_normal);
+					 nullptr, wall_texture_diffuse, wall_texture_diffuse, wall_texture_normal);
 	}
 	// FLOOR
 	{
 		Mat4f transform(1);
 		transform = lt::scale(transform, Vec3f(20.0f));
 		create_plane(&entities, &resources, &basic_shader, transform, 32, 10.0f,
-					 floor_texture_diffuse, floor_texture_diffuse, floor_texture_normal);
+					 nullptr, floor_texture_diffuse, floor_texture_diffuse, floor_texture_normal);
 	}
 	// Skybox
 	Mesh *skybox_mesh = resources.load_cubemap(skybox);

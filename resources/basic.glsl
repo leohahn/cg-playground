@@ -75,6 +75,14 @@ struct PointLight
     float quadratic;
 };
 
+struct DirectionalLight
+{
+	vec3  direction;
+	vec3  ambient;
+	vec3  diffuse;
+	vec3  specular;
+};
+
 struct Material
 {
     float      shininess;
@@ -87,6 +95,7 @@ struct Material
 
 uniform vec3 view_position;
 uniform PointLight point_lights[NUM_POINT_LIGHTS];
+uniform DirectionalLight dir_light;
 uniform Material material;
 uniform mat4 model;
 
@@ -96,6 +105,32 @@ struct DebugGuiState
 };
 
 uniform DebugGuiState debug_gui_state;
+
+vec3
+calc_directional_light(DirectionalLight dir_light, vec3 normal, vec3 surface_normal)
+{
+    vec3 diffuse_color = vec3(texture(material.texture_diffuse1, vs_out.frag_tex_coords));
+    vec3 specular_color = vec3(texture(material.texture_specular1, vs_out.frag_tex_coords));
+
+    vec3 frag_to_light = -dir_light.direction;
+    vec3 frag_to_view = normalize(view_position - vs_out.frag_world_pos);
+    vec3 halfway_dir = normalize(frag_to_light + frag_to_view);
+
+    vec3 ambient = dir_light.ambient * diffuse_color * vec3(0.04f);
+
+	// NOTE: This is necessary because the normal from the normal map may have a positive dot product with the
+	// frag_to_light vector even if the surface normal doesn't.
+	float evaluate_normal_map = ceil(dot(surface_normal, frag_to_light));
+
+    float diffuse_strength = max(0.0f, dot(frag_to_light, normal)) * evaluate_normal_map;
+    vec3 diffuse = dir_light.diffuse * diffuse_strength * diffuse_color;
+
+	float specular_strength = pow(max(0.0f, dot(halfway_dir, normal)), material.shininess) *
+		evaluate_normal_map;
+    vec3 specular = dir_light.specular * (specular_strength * specular_color);
+
+    return (ambient + diffuse + specular);
+}
 
 vec3
 calc_point_light(PointLight light, vec3 normal, vec3 surface_normal)
@@ -151,6 +186,8 @@ main()
 
     for (int i = 0; i < NUM_POINT_LIGHTS; ++i)
         light_contributions += calc_point_light(point_lights[i], normal, surface_normal);
+
+	light_contributions += calc_directional_light(dir_light, normal, surface_normal);
 
     frag_color = vec4(light_contributions, 1.0f);
 

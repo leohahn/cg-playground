@@ -27,44 +27,49 @@ Entities::destroy(EntityHandle handle)
 
 EntityHandle
 create_textured_cube(Entities *entities, Resources *resources, Shader *shader,
-					 const Mat4f &transform, f32 shininess,
+					 const Mat4f &transform, f32 shininess, Shader *shadow_cast_texture,
 					 u32 diffuse_texture, u32 specular_texture, u32 normal_texture)
 {
-	EntityHandle h = entities->create(ComponentKind_Renderable | ComponentKind_Transform);
+	EntityHandle h = entities->create(ComponentKind_Renderable |
+									  ComponentKind_Transform |
+									  ComponentKind_ShadowCaster);
 	LT_Assert(h >= 0);
-
-	logger.log("created textured cube (", h, ")");
 
 	entities->renderable[h].mesh = resources->load_unit_cube(diffuse_texture, specular_texture, normal_texture);
 	entities->renderable[h].shader = shader;
 	entities->renderable[h].shininess = shininess;
 	entities->transform[h].mat = transform;
+	entities->shadow_caster[h].shader = shadow_cast_texture;
 	return h;
 }
 
 EntityHandle
 create_point_light(Entities *entities, Resources *resources, Shader *shader, const Mat4f &transform,
-				   const LightEmmiter &light_emmiter, u32 diffuse_texture, u32 specular_texture)
+				   const LightEmmiter &light_emmiter, Shader *shadow_cast_texture, u32 diffuse_texture,
+				   u32 specular_texture)
 {
-	EntityHandle h = entities->create(ComponentKind_Renderable | ComponentKind_Transform |
-									  ComponentKind_LightEmmiter);
-
-	logger.log("created point light (", h, ")");
+	EntityHandle h = entities->create(ComponentKind_Renderable |
+									  ComponentKind_Transform |
+									  ComponentKind_LightEmmiter |
+									  ComponentKind_ShadowCaster);
 
 	LT_Assert(h >= 0);
 	entities->renderable[h].mesh = resources->load_unit_cube(diffuse_texture, specular_texture);
 	entities->renderable[h].shader = shader;
 	entities->transform[h].mat = transform;
 	entities->light_emmiter[h] = light_emmiter;
+	entities->shadow_caster[h].shader = shadow_cast_texture;
 	return h;
 }
 
 EntityHandle
 create_plane(Entities *entities, Resources *resources, Shader *shader,
-			 const Mat4f &transform, f32 shininess, f32 tex_coords_scale, u32 diffuse_texture,
-			 u32 specular_texture, u32 normal_texture)
+			 const Mat4f &transform, f32 shininess, f32 tex_coords_scale,
+			 Shader *shadow_cast_texture, u32 diffuse_texture, u32 specular_texture, u32 normal_texture)
 {
-	EntityHandle h = entities->create(ComponentKind_Renderable | ComponentKind_Transform);
+	EntityHandle h = entities->create(ComponentKind_Renderable |
+									  ComponentKind_Transform |
+									  ComponentKind_ShadowCaster);
 	LT_Assert(h >= 0);
 
 	entities->renderable[h].mesh = resources->load_unit_plane(tex_coords_scale, diffuse_texture,
@@ -72,6 +77,7 @@ create_plane(Entities *entities, Resources *resources, Shader *shader,
 	entities->renderable[h].shader = shader;
 	entities->renderable[h].shininess = shininess;
 	entities->transform[h].mat = transform;
+	entities->shadow_caster[h].shader = shadow_cast_texture;
 	return h;
 }
 
