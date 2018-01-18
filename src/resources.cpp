@@ -291,11 +291,12 @@ Resources::load_unit_cube(u32 diffuse_texture, u32 specular_texture, u32 normal_
 	mesh->tangents = std::vector<Vec3f>(LT_Count(UNIT_CUBE_VERTICES));
 	mesh->bitangents = std::vector<Vec3f>(LT_Count(UNIT_CUBE_VERTICES));
 
-	// Add all textures to the mesh
-	mesh->textures.push_back(Texture(diffuse_texture, "texture_diffuse"));
-    mesh->textures.push_back(Texture(specular_texture, "texture_specular"));
+	// FIXME: remove the hardcoded texture strings.
+	// figure out a better way to abstract this (maybe after implementing a deffered renderer.
+	mesh->textures.push_back(Texture(diffuse_texture, "material.texture_diffuse1"));
+    mesh->textures.push_back(Texture(specular_texture, "material.texture_specular1"));
 	if (normal_texture)
-		mesh->textures.push_back(Texture(normal_texture, "texture_normal"));
+		mesh->textures.push_back(Texture(normal_texture, "material.texture_normal1"));
 
 	// Add all only the positions
 	for (usize i = 0; i < LT_Count(UNIT_CUBE_VERTICES); i++)
@@ -380,10 +381,10 @@ Resources::load_unit_plane(f32 tex_coords_scale, u32 diffuse_texture,
 	mesh->bitangents = std::vector<Vec3f>(LT_Count(UNIT_PLANE_VERTICES));
 
 	// Add all textures to the mesh
-	mesh->textures.push_back(Texture(diffuse_texture, "texture_diffuse"));
-    mesh->textures.push_back(Texture(specular_texture, "texture_specular"));
+	mesh->textures.push_back(Texture(diffuse_texture, "material.texture_diffuse1"));
+    mesh->textures.push_back(Texture(specular_texture, "material.texture_specular1"));
 	if (normal_texture)
-		mesh->textures.push_back(Texture(normal_texture, "texture_normal"));
+		mesh->textures.push_back(Texture(normal_texture, "material.texture_normal1"));
 
 	// Add all only the positions
 	for (usize i = 0; i < LT_Count(UNIT_PLANE_VERTICES); i++)

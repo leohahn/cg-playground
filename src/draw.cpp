@@ -88,7 +88,7 @@ draw_entities_for_shadow_map(const Entities &e, const Mat4f &light_view, const V
 }
 
 void
-draw_entities(const Entities &e, const Camera &camera, GLContext &context)
+draw_entities(const Entities &e, const Camera &camera, GLContext &context, ShadowMap &shadow_map)
 {
 	for (isize handle = 0; handle < MAX_ENTITIES; handle++)
 	{
@@ -136,30 +136,26 @@ draw_entities(const Entities &e, const Camera &camera, GLContext &context)
             shader->set3f("view_position", camera.frustum.position);
             shader->set1f("material.shininess", e.renderable[handle].shininess);
 
-			u32 diffuse_nr = 1;
-			u32 specular_nr = 1;
-			u32 normal_nr = 1;
+			// Config the shadow map texture
+			{
+				u32 tex_unit = shader->texture_unit("texture_shadow_map");
+				glActiveTexture(GL_TEXTURE0 + tex_unit);
+				shader->set1i("texture_shadow_map", tex_unit);
+				glBindTexture(GL_TEXTURE_2D, shadow_map.texture);
+			}
+
 			bool use_normal_map = false;
 
 			for (usize i = 0; i < mesh->textures.size(); i++)
 			{
-				glActiveTexture(GL_TEXTURE0 + i); // activate proper texture unit before binding
-				// retrieve texture number (the N in diffuse_textureN)
 				string name = mesh->textures[i].type;
-				string number;
-				if (name == "texture_diffuse")
-					number = std::to_string(diffuse_nr++);
-				else if (name == "texture_specular")
-					number = std::to_string(specular_nr++);
-				else if (name == "texture_normal")
-				{
-					number = std::to_string(normal_nr++);
-					use_normal_map = true;
-				}
-				else
-					LT_Assert(false);
+				u32 texture_unit = shader->texture_unit(name);
+				glActiveTexture(GL_TEXTURE0 + texture_unit);
 
-				shader->set1i(("material." + name + number).c_str(), i);
+				if (name == "material.texture_normal1")
+					use_normal_map = true;
+
+				shader->set1i(name.c_str(), texture_unit);
 				glBindTexture(GL_TEXTURE_2D, mesh->textures[i].id);
 			}
 
@@ -185,6 +181,7 @@ draw_skybox(const Mesh *mesh, Shader &shader, const Mat4f &view, GLContext &cont
 	shader.set_matrix("view", view);
 
     context.bind_vao(mesh->vao);
+	glActiveTexture(GL_TEXTURE0 + shader.texture_unit("skybox"));
 	glBindTexture(GL_TEXTURE_CUBE_MAP, mesh->textures[0].id);
     glDrawElements(GL_TRIANGLES, mesh->number_of_indices(), GL_UNSIGNED_INT, 0);
     context.unbind_vao();

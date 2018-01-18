@@ -133,6 +133,7 @@ Shader::recompile()
 
 Shader::Shader(const char *name)
     : name(name)
+	, m_next_texture_unit(0)
 {
     program = make_program(name);
 }
@@ -142,6 +143,29 @@ Shader::on_recompilation(const std::function<void()> &handler)
 {
     LT_Assert(m_recompilation_handler == nullptr);
     m_recompilation_handler = handler;
+}
+
+void
+Shader::add_texture(const char *name)
+{
+	std::string str_name(name);
+	LT_Assert(m_texture_units.find(str_name) == m_texture_units.end());
+	m_texture_units[str_name] = m_next_texture_unit++;
+}
+
+u32
+Shader::texture_unit(const char *name) const
+{
+	std::string str_name(name);
+	logger.log("texture unit for ", name);
+	LT_Assert(m_texture_units.find(str_name) != m_texture_units.end());
+	return m_texture_units.at(str_name);
+}
+
+u32
+Shader::texture_unit(const std::string &name) const
+{
+	return texture_unit(name.c_str());
 }
 
 void

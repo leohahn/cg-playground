@@ -50,8 +50,7 @@ create_point_light(Entities *entities, Resources *resources, Shader *shader, con
 {
 	EntityHandle h = entities->create(ComponentKind_Renderable |
 									  ComponentKind_Transform |
-									  ComponentKind_LightEmmiter |
-									  ComponentKind_ShadowCaster);
+									  ComponentKind_LightEmmiter);
 
 	LT_Assert(h >= 0);
 	entities->renderable[h].mesh = resources->load_unit_cube(diffuse_texture, specular_texture);

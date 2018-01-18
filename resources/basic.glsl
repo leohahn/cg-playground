@@ -14,6 +14,7 @@ layout (location = 4) in vec3 att_bitangent;
 uniform mat4 model;
 uniform mat4 view;
 uniform mat4 projection;
+uniform mat4 light_space;
 
 out VS_OUT
 {
@@ -21,6 +22,7 @@ out VS_OUT
 	vec2 frag_tex_coords;
 	mat3 TBN;
 	vec3 frag_normal; // @Temporary
+	vec4 frag_pos_light_space;
 } vs_out;
 
 void
@@ -29,6 +31,7 @@ main()
     vs_out.frag_tex_coords = att_tex_coords;
     vs_out.frag_world_pos = vec3(model * vec4(att_position, 1.0f));
     vs_out.frag_normal = mat3(transpose(inverse(model))) * att_normal;
+	vs_out.frag_pos_light_space = light_space * vec4(vs_out.frag_world_pos, 1.0f);
 
 	vec3 T = normalize(vec3(model * vec4(att_tangent,   0.0)));
 	vec3 B = normalize(vec3(model * vec4(att_bitangent, 0.0)));
@@ -48,15 +51,13 @@ main()
  * ==================================== */
 #ifdef COMPILING_FRAGMENT
 
-// in vec2 frag_tex_coord;
-// in vec3 frag_world_pos;
-
 in VS_OUT
 {
 	vec3 frag_world_pos;
 	vec2 frag_tex_coords;
 	mat3 TBN;
 	vec3 frag_normal;
+	vec4 frag_pos_light_space;
 } vs_out;
 
 out vec4 frag_color;
@@ -99,6 +100,8 @@ uniform DirectionalLight dir_light;
 uniform Material material;
 uniform mat4 model;
 
+uniform sampler2D texture_shadow_map;
+
 struct DebugGuiState
 {
 	bool enable_normal_mapping;
@@ -106,8 +109,22 @@ struct DebugGuiState
 
 uniform DebugGuiState debug_gui_state;
 
+float
+shadow_calculation(vec4 pos_light_space)
+{
+	// perspective divide and map coordinates to the texture's one
+	vec3 projection_coords = pos_light_space.xyz / pos_light_space.w;
+	projection_coords = projection_coords * 0.5f + 0.5f;
+
+	float closest_depth = texture(texture_shadow_map, projection_coords.xy).r;
+	// return float(closest_depth < projection_coords.z);
+	float bias = 0.005;
+	return (projection_coords.z - bias) > closest_depth ? 1.0f : 0.0f;
+	// return projection_coords.z > closest_depth ? 1.0f : 0.0f;
+}
+
 vec3
-calc_directional_light(DirectionalLight dir_light, vec3 normal, vec3 surface_normal)
+calc_directional_light(DirectionalLight dir_light, vec3 normal, vec3 surface_normal, vec4 frag_pos_light_space)
 {
     vec3 diffuse_color = vec3(texture(material.texture_diffuse1, vs_out.frag_tex_coords));
     vec3 specular_color = vec3(texture(material.texture_specular1, vs_out.frag_tex_coords));
@@ -129,7 +146,9 @@ calc_directional_light(DirectionalLight dir_light, vec3 normal, vec3 surface_nor
 		evaluate_normal_map;
     vec3 specular = dir_light.specular * (specular_strength * specular_color);
 
-    return (ambient + diffuse + specular);
+	float shadow = shadow_calculation(frag_pos_light_space);
+	// float shadow = 0;
+    return (ambient + (diffuse + specular)*(1-shadow));
 }
 
 vec3
@@ -187,7 +206,7 @@ main()
     for (int i = 0; i < NUM_POINT_LIGHTS; ++i)
         light_contributions += calc_point_light(point_lights[i], normal, surface_normal);
 
-	light_contributions += calc_directional_light(dir_light, normal, surface_normal);
+	light_contributions += calc_directional_light(dir_light, normal, surface_normal, vs_out.frag_pos_light_space);
 
     frag_color = vec4(light_contributions, 1.0f);
 

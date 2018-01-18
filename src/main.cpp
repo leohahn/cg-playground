@@ -322,16 +322,26 @@ main(void)
     light_shader.on_recompilation([&] {
         light_shader.setup_projection_matrix(ASPECT_RATIO, context);
     });
+
     Shader basic_shader("basic.glsl");
+	basic_shader.add_texture("material.texture_diffuse1");
+	basic_shader.add_texture("material.texture_specular1");
+	basic_shader.add_texture("material.texture_normal1");
+	basic_shader.add_texture("texture_shadow_map");
     basic_shader.on_recompilation([&] {
         basic_shader.setup_projection_matrix(ASPECT_RATIO, context);
     });
+
     Shader skybox_shader("skybox.glsl");
+	skybox_shader.add_texture("skybox");
     skybox_shader.on_recompilation([&] {
         skybox_shader.setup_projection_matrix(ASPECT_RATIO, context);
     });
+
     Shader shadow_map_shader("shadow_map.glsl");
+
     Shader shadow_map_render_shader("shadow_map_render.glsl");
+	shadow_map_render_shader.add_texture("texture_shadow_map");
 
     const f32 FIELD_OF_VIEW = 60.0f;
     const f32 MOVE_SPEED = 0.05f;
@@ -366,7 +376,8 @@ main(void)
 	const u32 skybox = load_cubemap_texture(skybox_faces, LT_Count(skybox_faces),
 											TextureFormat_RGB, PixelFormat_RGB);
 
-	const i32 shadow_map_width = 1024, shadow_map_height = 1024;
+	// const i32 shadow_map_width = 1024, shadow_map_height = 1024;
+	const i32 shadow_map_width = WINDOW_WIDTH, shadow_map_height = WINDOW_HEIGHT;
 	ShadowMap shadow_map = create_shadow_map(shadow_map_width, shadow_map_height, &shadow_map_shader);
 	Mesh *shadow_map_surface = resources.load_shadow_map_render_surface(shadow_map.texture);
 
@@ -416,10 +427,12 @@ main(void)
 
 	{
 		// Set the static light space uniform for the shadow map shader
-		const Mat4f light_projection = lt::orthographic(-30, 30, -30, 30, 1, 50);
+		const Mat4f light_projection = lt::orthographic(-30, 30, -30, 30, 1, 100);
 		const Mat4f light_space = light_projection * light_view;
 		context.use_shader(shadow_map_shader);
 		shadow_map_shader.set_matrix("light_space", light_space);
+		context.use_shader(basic_shader);
+		basic_shader.set_matrix("light_space", light_space);
 	}
 	{
 		LightEmmiter le = {};
@@ -524,12 +537,14 @@ main(void)
 		glViewport(0, 0, shadow_map_width, shadow_map_height);
 		glBindFramebuffer(GL_FRAMEBUFFER, shadow_map.fbo); // TODO: move to GLContext
 		glClear(GL_DEPTH_BUFFER_BIT);
+		glDisable(GL_CULL_FACE);
 		draw_entities_for_shadow_map(entities, light_view, dir_light_pos, shadow_map, context);
 
 		// Actual rendering
 		glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		glEnable(GL_CULL_FACE);
 
 		if (g_debug_gui_state.draw_shadow_map)
 		{
@@ -539,8 +554,7 @@ main(void)
 		else
 		{
 			context.use_shader(basic_shader);
-			basic_shader.set1i("debug_gui_state.enable_normal_mapping", g_debug_gui_state.enable_normal_mapping);
-			draw_entities(entities, camera, context);
+			draw_entities(entities, camera, context, shadow_map);
 			draw_skybox(skybox_mesh, skybox_shader, camera.view_matrix(), context);
 		}
 
