@@ -281,18 +281,13 @@ load_texture(const char *path, TextureFormat texture_format, PixelFormat pixel_f
 }
 
 lt_internal u32
-create_shadow_map()
+create_shadow_map(i32 width, i32 height)
 {
-	//
-	// TODO: Work on this function and shadow mapping
-	//
-
 	// Create the texture
 	u32 depth_map;
 	glGenTextures(1, &depth_map);
 	glBindTexture(GL_TEXTURE_2D, depth_map);
 
-	const i32 width = 1024, height = 1024;
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, width, height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -380,7 +375,9 @@ main(void)
 
 	const u32 skybox = load_cubemap_texture(skybox_faces, LT_Count(skybox_faces),
 											TextureFormat_RGB, PixelFormat_RGB);
-	const u32 shadow_map = create_shadow_map();
+
+	const i32 shadow_map_width = 1024, shadow_map_height = 1024;
+	const u32 shadow_map = create_shadow_map(shadow_map_width, shadow_map_height);
 
 	// ----------------------------------------------------------
 	// Entities
@@ -408,7 +405,6 @@ main(void)
 		create_textured_cube(&entities, &resources, &basic_shader, transform, 128,
 							 box_texture_diffuse, box_texture_diffuse, box_texture_normal);
 	}
-
 	// light
 	{
 		LightEmmiter le = {};
@@ -463,6 +459,9 @@ main(void)
     f64 new_time, total_delta, delta;
     f64 previous_time = glfwGetTime();
 
+	// Fixed clear color
+	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+
     bool running = true;
     while (running)
     {
@@ -488,9 +487,6 @@ main(void)
             continue;
         }
 
-        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
 		if (g_debug_gui_state.enable_multisampling)
 			context.enable_multisampling();
 		else
@@ -508,6 +504,16 @@ main(void)
             loops++;
         }
 
+		// Render first to depth map
+		glViewport(0, 0, shadow_map_width, shadow_map_height);
+		glBindFramebuffer(GL_FRAMEBUFFER, shadow_map);
+		glClear(GL_DEPTH_BUFFER_BIT);
+
+
+		// Actual rendering
+		glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		context.use_shader(basic_shader);
 		basic_shader.set1i("debug_gui_state.enable_normal_mapping", g_debug_gui_state.enable_normal_mapping);
 
