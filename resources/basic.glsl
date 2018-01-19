@@ -117,9 +117,7 @@ shadow_calculation(vec4 pos_light_space, vec3 surface_normal, vec3 light_dir)
 	projection_coords = projection_coords * 0.5f + 0.5f;
 
 	float closest_depth = texture(texture_shadow_map, projection_coords.xy).r;
-
-	float bias = max(0.05 * (1.0 - dot(surface_normal, -light_dir)), 0.005);
-	return (projection_coords.z - bias) > closest_depth ? 1.0f : 0.0f;
+	return float(projection_coords.z > closest_depth);
 }
 
 vec3

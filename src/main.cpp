@@ -141,8 +141,7 @@ create_window_and_set_context(const char *title, i32 width, i32 height)
         LT_Fail("Failed to initialize GLAD\n");
 
     glEnable(GL_CULL_FACE);
-    // glFrontFace(GL_CCW);
-    // glCullFace(GL_FRONT);
+    glFrontFace(GL_CCW);
 
     glEnable(GL_DEPTH_TEST);
     glViewport(0, 0, width, height);
@@ -391,19 +390,21 @@ main(void)
 	Entities entities = {};
 
 	// cubes
-	const Vec3f positions[4] = {
+	const Vec3f positions[] = {
 		Vec3f(0.0f, 2.0f, 0.0f),
 		Vec3f(4.0f, 3.0f, 0.0f),
 		Vec3f(1.0f, 5.0f, 2.0f),
 		Vec3f(-5.0f, 2.0f, -1.0f),
+		Vec3f(-3.0f, 1.1f, -7.0f),
 	};
-	const Vec3f scales[4] = {
+	const Vec3f scales[] = {
 		Vec3f(1),
 		Vec3f(1),
 		Vec3f(1),
 		Vec3f(1),
+		Vec3f(2),
 	};
-	for (i32 i = 0; i < 4; i++)
+	for (i32 i = 0; i < LT_Count(positions); i++)
 	{
 		Mat4f transform;
 		transform = lt::translation(transform, positions[i]);
@@ -543,12 +544,12 @@ main(void)
 		glClear(GL_DEPTH_BUFFER_BIT);
 		glDisable(GL_CULL_FACE);
 		draw_entities_for_shadow_map(entities, light_view, dir_light_pos, shadow_map, context);
+		glEnable(GL_CULL_FACE);
 
 		// Actual rendering
 		glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		glEnable(GL_CULL_FACE);
 
 		if (g_debug_gui_state.draw_shadow_map)
 		{
