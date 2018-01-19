@@ -146,18 +146,22 @@ Shader::on_recompilation(const std::function<void()> &handler)
 }
 
 void
-Shader::add_texture(const char *name)
+Shader::add_texture(const char *name, GLContext &context)
 {
 	std::string str_name(name);
 	LT_Assert(m_texture_units.find(str_name) == m_texture_units.end());
-	m_texture_units[str_name] = m_next_texture_unit++;
+	m_texture_units[str_name] = m_next_texture_unit;
+
+	context.use_shader(*this);
+	set1i(name, m_next_texture_unit);
+
+	m_next_texture_unit++;
 }
 
 u32
 Shader::texture_unit(const char *name) const
 {
 	std::string str_name(name);
-	logger.log("texture unit for ", name);
 	LT_Assert(m_texture_units.find(str_name) != m_texture_units.end());
 	return m_texture_units.at(str_name);
 }
@@ -172,8 +176,6 @@ void
 Shader::setup_projection_matrix(f32 aspect_ratio, GLContext &context)
 {
     const Mat4f projection = lt::perspective(60.0f, aspect_ratio, 0.1f, 100.0f);
-	// const Mat4f projection = lt::orthographic(-10, 10, -20, 20, 0.1, 50);
-
     context.use_shader(*this);
     glUniformMatrix4fv(get_location("projection"), 1, GL_FALSE, projection.data());
 }

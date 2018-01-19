@@ -25,7 +25,7 @@ struct ShadowMap
 	}
 };
 
-ShadowMap create_shadow_map(i32 width, i32 height, Shader *shader);
+ShadowMap create_shadow_map(i32 width, i32 height, Shader &shader);
 
 void draw_skybox(const Mesh *skybox_mesh, Shader &shader, const Mat4f &view, GLContext &context);
 void draw_entities(const Entities &e, const Camera &camera, GLContext &context, ShadowMap &shadow_map);

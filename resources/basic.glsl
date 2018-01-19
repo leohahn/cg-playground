@@ -110,17 +110,16 @@ struct DebugGuiState
 uniform DebugGuiState debug_gui_state;
 
 float
-shadow_calculation(vec4 pos_light_space)
+shadow_calculation(vec4 pos_light_space, vec3 surface_normal, vec3 light_dir)
 {
 	// perspective divide and map coordinates to the texture's one
 	vec3 projection_coords = pos_light_space.xyz / pos_light_space.w;
 	projection_coords = projection_coords * 0.5f + 0.5f;
 
 	float closest_depth = texture(texture_shadow_map, projection_coords.xy).r;
-	// return float(closest_depth < projection_coords.z);
-	float bias = 0.005;
+
+	float bias = max(0.05 * (1.0 - dot(surface_normal, -light_dir)), 0.005);
 	return (projection_coords.z - bias) > closest_depth ? 1.0f : 0.0f;
-	// return projection_coords.z > closest_depth ? 1.0f : 0.0f;
 }
 
 vec3
@@ -146,7 +145,7 @@ calc_directional_light(DirectionalLight dir_light, vec3 normal, vec3 surface_nor
 		evaluate_normal_map;
     vec3 specular = dir_light.specular * (specular_strength * specular_color);
 
-	float shadow = shadow_calculation(frag_pos_light_space);
+	float shadow = shadow_calculation(frag_pos_light_space, surface_normal, dir_light.direction);
 	// float shadow = 0;
     return (ambient + (diffuse + specular)*(1-shadow));
 }

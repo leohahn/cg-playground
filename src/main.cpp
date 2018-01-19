@@ -318,22 +318,27 @@ main(void)
 	//
 	// Load shaders
 	//
+	// TODO: Fix shader recompilation.
+	//    - All uniforms that are not added every frame have to be reapplied after
+	//      recompilation for the process to work.
+	//    - Currently only the projection matrix is updated
+	//
     Shader light_shader("light.glsl");
     light_shader.on_recompilation([&] {
         light_shader.setup_projection_matrix(ASPECT_RATIO, context);
     });
 
     Shader basic_shader("basic.glsl");
-	basic_shader.add_texture("material.texture_diffuse1");
-	basic_shader.add_texture("material.texture_specular1");
-	basic_shader.add_texture("material.texture_normal1");
-	basic_shader.add_texture("texture_shadow_map");
+	basic_shader.add_texture("material.texture_diffuse1", context);
+	basic_shader.add_texture("material.texture_specular1", context);
+	basic_shader.add_texture("material.texture_normal1", context);
+	basic_shader.add_texture("texture_shadow_map", context);
     basic_shader.on_recompilation([&] {
         basic_shader.setup_projection_matrix(ASPECT_RATIO, context);
     });
 
     Shader skybox_shader("skybox.glsl");
-	skybox_shader.add_texture("skybox");
+	skybox_shader.add_texture("skybox", context);
     skybox_shader.on_recompilation([&] {
         skybox_shader.setup_projection_matrix(ASPECT_RATIO, context);
     });
@@ -341,15 +346,15 @@ main(void)
     Shader shadow_map_shader("shadow_map.glsl");
 
     Shader shadow_map_render_shader("shadow_map_render.glsl");
-	shadow_map_render_shader.add_texture("texture_shadow_map");
+	shadow_map_render_shader.add_texture("texture_shadow_map", context);
 
     const f32 FIELD_OF_VIEW = 60.0f;
     const f32 MOVE_SPEED = 0.05f;
     const f32 ROTATION_SPEED = 0.02f;
 	// const Vec3f CAMERA_POSITION(0.0f, 5.0f, 10.0f);
-	const Vec3f CAMERA_POSITION(-15.47f, 24.12f, -28.7f);
+	const Vec3f CAMERA_POSITION(0, 5, 8);
 	// const Vec3f CAMERA_FRONT(0.0f, 0.0f, -1.0f);
-	const Vec3f CAMERA_FRONT(0.4f, -0.57f, 0.72f);
+	const Vec3f CAMERA_FRONT(0, 0, -1);
 	const Vec3f UP_WORLD(0.0f, 1.0f, 0.0f);
     Camera camera(CAMERA_POSITION, CAMERA_FRONT, UP_WORLD,
                   FIELD_OF_VIEW, ASPECT_RATIO, MOVE_SPEED, ROTATION_SPEED);
@@ -376,9 +381,8 @@ main(void)
 	const u32 skybox = load_cubemap_texture(skybox_faces, LT_Count(skybox_faces),
 											TextureFormat_RGB, PixelFormat_RGB);
 
-	// const i32 shadow_map_width = 1024, shadow_map_height = 1024;
-	const i32 shadow_map_width = WINDOW_WIDTH, shadow_map_height = WINDOW_HEIGHT;
-	ShadowMap shadow_map = create_shadow_map(shadow_map_width, shadow_map_height, &shadow_map_shader);
+	const i32 shadow_map_width = 1024, shadow_map_height = 1024;
+	ShadowMap shadow_map = create_shadow_map(shadow_map_width, shadow_map_height, shadow_map_shader);
 	Mesh *shadow_map_surface = resources.load_shadow_map_render_surface(shadow_map.texture);
 
 	// ----------------------------------------------------------
@@ -554,6 +558,7 @@ main(void)
 		else
 		{
 			context.use_shader(basic_shader);
+			basic_shader.set1i("debug_gui_state.enable_normal_mapping", g_debug_gui_state.enable_normal_mapping);
 			draw_entities(entities, camera, context, shadow_map);
 			draw_skybox(skybox_mesh, skybox_shader, camera.view_matrix(), context);
 		}

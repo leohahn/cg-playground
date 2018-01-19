@@ -14,12 +14,12 @@ lt_internal lt::Logger logger("draw");
 #define SHADOW_CASTER_MASK (ComponentKind_ShadowCaster | ComponentKind_Renderable | ComponentKind_Transform)
 
 ShadowMap
-create_shadow_map(i32 width, i32 height, Shader *shader)
+create_shadow_map(i32 width, i32 height, Shader &shader)
 {
 	ShadowMap sm = {};
 	sm.width = width;
 	sm.height = height;
-	sm.shader = shader;
+	sm.shader = &shader;
 	   
 	// Create the texture
 	glGenTextures(1, &sm.texture);
@@ -49,14 +49,11 @@ draw_shadow_map(Mesh *mesh, Shader &shadow_map_render_shader, GLContext &context
 {
 	using std::string;
 	context.use_shader(shadow_map_render_shader);
-	shadow_map_render_shader.set1i("shadow_map_texture", 0);
 
 	glActiveTexture(GL_TEXTURE0); // activate proper texture unit before binding
-				// retrieve texture number (the N in diffuse_textureN)
 	string name = mesh->textures[0].type;
 	LT_Assert(name == "texture_shadow_map");
 
-	shadow_map_render_shader.set1i(name.c_str(), 0);
 	glBindTexture(GL_TEXTURE_2D, mesh->textures[0].id);
 
 	context.bind_vao(mesh->vao);
@@ -140,7 +137,7 @@ draw_entities(const Entities &e, const Camera &camera, GLContext &context, Shado
 			{
 				u32 tex_unit = shader->texture_unit("texture_shadow_map");
 				glActiveTexture(GL_TEXTURE0 + tex_unit);
-				shader->set1i("texture_shadow_map", tex_unit);
+				// shader->set1i("texture_shadow_map", tex_unit);
 				glBindTexture(GL_TEXTURE_2D, shadow_map.texture);
 			}
 
@@ -155,7 +152,7 @@ draw_entities(const Entities &e, const Camera &camera, GLContext &context, Shado
 				if (name == "material.texture_normal1")
 					use_normal_map = true;
 
-				shader->set1i(name.c_str(), texture_unit);
+				// shader->set1i(name.c_str(), texture_unit);
 				glBindTexture(GL_TEXTURE_2D, mesh->textures[i].id);
 			}
 

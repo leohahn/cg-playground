@@ -24,7 +24,7 @@ struct Shader
     void set1f(const char *name, f32 f);
     void set_matrix(const char *name, const Mat4f &m);
 
-	void add_texture(const char *name);
+	void add_texture(const char *name, GLContext &context);
 	u32 texture_unit(const char *name) const;
 	u32 texture_unit(const std::string &name) const;
 
