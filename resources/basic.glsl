@@ -112,12 +112,31 @@ uniform DebugGuiState debug_gui_state;
 float
 shadow_calculation(vec4 pos_light_space, vec3 surface_normal, vec3 light_dir)
 {
+	// TODO: Maybe expose this variables to the debug GUI
+	const int mipmap_lvl = 0;
+	const float texel_offset = 1.5;
+
 	// perspective divide and map coordinates to the texture's one
 	vec3 projection_coords = pos_light_space.xyz / pos_light_space.w;
-	projection_coords = projection_coords * 0.5f + 0.5f;
+	projection_coords = projection_coords * 0.5 + 0.5;
 
-	float closest_depth = texture(texture_shadow_map, projection_coords.xy).r;
-	return float(projection_coords.z > closest_depth);
+	// Return no shadow if the fragment is outside the far plane of the light space
+	if (projection_coords.z > 1.0)
+		return 0.0;
+
+	// Implement Percentage-Closer Filtering
+	float frag_depth = projection_coords.z;
+	float shadow = 0.0;
+	vec2 texel_size = texel_offset / textureSize(texture_shadow_map, mipmap_lvl);
+	// Get depth values for a 3x3 neighborhood, then average by 9 (number of neighbors)
+	for (int y = -1; y <= 1; y++)
+		for (int x = -1; x <= 1; x++)
+		{
+			float depth = texture(texture_shadow_map, projection_coords.xy + vec2(x, y)*texel_size).r;
+			shadow += float(frag_depth > depth);
+		}
+	shadow /= 9.0;
+	return shadow;
 }
 
 vec3
