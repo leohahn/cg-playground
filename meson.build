@@ -2,8 +2,9 @@ project('tutorial', 'cpp',
         default_options: ['cpp_std=c++14'])
 
 # Include directories
-project_inc_dir  = include_directories('src')
-lt_inc_dir       = include_directories('lt/src')
+project_inc_dir    = include_directories('src')
+lt_inc_dir         = include_directories('lt/src')
+thirdparty_inc_dir = include_directories('thirdparty')
 
 cpp = meson.get_compiler('cpp')
 # Dependencies
@@ -15,11 +16,11 @@ glfw3_dep  = dependency('glfw3')
 
 cpp_args = ['-Wall', '-DDEV_ENV', '-DLT_DEBUG', '-g']
 executable('rbs',
-           'src/main.cpp', 'src/glad/glad.cpp', 'src/watcher.cpp', 'src/shader.cpp',
+           'src/main.cpp', 'thirdparty/glad/glad.cpp', 'src/watcher.cpp', 'src/shader.cpp',
            'lt/src/lt_fs.cpp', 'lt/src/lt_math.cpp', 'src/camera.cpp', 'src/gl_resources.cpp',
-           'src/stb_image.cpp', 'src/draw.cpp', 'src/mesh.cpp', 'src/debug_gui.cpp', 'src/imgui_impl_glfw.cpp',
-		   'src/imgui/imgui.cpp', 'src/imgui/imgui_draw.cpp', 'src/imgui/imgui_demo.cpp', 'src/resources.cpp',
-		   'src/entities.cpp',
+           'thirdparty/stb_image.cpp', 'src/draw.cpp', 'src/mesh.cpp', 'src/debug_gui.cpp',
+		   'src/imgui_impl_glfw.cpp', 'thirdparty/imgui/imgui.cpp', 'thirdparty/imgui/imgui_draw.cpp',
+		   'thirdparty/imgui/imgui_demo.cpp', 'src/resources.cpp', 'src/entities.cpp',
            dependencies: [
              thread_dep,
              m_dep,
@@ -28,6 +29,6 @@ executable('rbs',
              glfw3_dep
            ],
            include_directories: [
-             project_inc_dir, lt_inc_dir
+             project_inc_dir, lt_inc_dir, thirdparty_inc_dir
            ],
            cpp_args: cpp_args)
