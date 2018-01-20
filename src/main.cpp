@@ -560,6 +560,8 @@ main(void)
 		{
 			context.use_shader(basic_shader);
 			basic_shader.set1i("debug_gui_state.enable_normal_mapping", g_debug_gui_state.enable_normal_mapping);
+			basic_shader.set1f("debug_gui_state.pcf_texel_offset", g_debug_gui_state.pcf_texel_offset);
+			basic_shader.set1i("debug_gui_state.pcf_window_side", g_debug_gui_state.pcf_window_side);
 			draw_entities(entities, camera, context, shadow_map);
 			draw_skybox(skybox_mesh, skybox_shader, camera.view_matrix(), context);
 		}

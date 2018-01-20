@@ -15,6 +15,8 @@ struct DebugGuiState
 	f32  fps;
 	Vec3f camera_pos;
 	Vec3f camera_front;
+	f32 pcf_texel_offset = 1.0f;
+	i32 pcf_window_side = 3;
 };
 
 void debug_gui_draw(GLFWwindow *window, DebugGuiState *state);

@@ -38,7 +38,16 @@ debug_gui_draw(GLFWwindow *window, DebugGuiState *state)
 	ImGui::Text("FPS: %.2f", state->fps);
 	ImGui::End();
 
-	// ImGui::ShowDemoWindow();
+	ImGui::SetNextWindowSize(ImVec2(400, 100));
+	if (ImGui::Begin("Options", nullptr, ImGuiWindowFlags_NoTitleBar))
+	{
+		if (ImGui::CollapsingHeader("Shadows"))
+		{
+			ImGui::DragFloat("PCF texel offset", &state->pcf_texel_offset, 0.05f, 0.0f, 30.f, "%.2f");
+			ImGui::DragInt("PCF window side", &state->pcf_window_side, 2, 1, 21);
+		}
+		ImGui::End();
+	}
 
 	i32 display_w, display_h;
 	glfwGetFramebufferSize(window, &display_w, &display_h);

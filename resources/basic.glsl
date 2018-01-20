@@ -105,16 +105,21 @@ uniform sampler2D texture_shadow_map;
 struct DebugGuiState
 {
 	bool enable_normal_mapping;
+	float pcf_texel_offset;
+	int pcf_window_side;
 };
 
 uniform DebugGuiState debug_gui_state;
 
 float
-shadow_calculation(vec4 pos_light_space, vec3 surface_normal, vec3 light_dir)
+shadow_calculation(vec4 pos_light_space, vec3 surface_normal, vec3 light_dir, DebugGuiState state)
 {
 	// TODO: Maybe expose this variables to the debug GUI
 	const int mipmap_lvl = 0;
-	const float texel_offset = 1.5;
+	float texel_offset = state.pcf_texel_offset;
+	int window_side = state.pcf_window_side;
+	int num_sampled_texels = window_side*window_side;
+	int offset_xy = window_side/2;
 
 	// perspective divide and map coordinates to the texture's one
 	vec3 projection_coords = pos_light_space.xyz / pos_light_space.w;
@@ -129,13 +134,13 @@ shadow_calculation(vec4 pos_light_space, vec3 surface_normal, vec3 light_dir)
 	float shadow = 0.0;
 	vec2 texel_size = texel_offset / textureSize(texture_shadow_map, mipmap_lvl);
 	// Get depth values for a 3x3 neighborhood, then average by 9 (number of neighbors)
-	for (int y = -1; y <= 1; y++)
-		for (int x = -1; x <= 1; x++)
+	for (int y = -offset_xy; y <= offset_xy; y++)
+		for (int x = -offset_xy; x <= offset_xy; x++)
 		{
 			float depth = texture(texture_shadow_map, projection_coords.xy + vec2(x, y)*texel_size).r;
 			shadow += float(frag_depth > depth);
 		}
-	shadow /= 9.0;
+	shadow /= num_sampled_texels;
 	return shadow;
 }
 
@@ -162,7 +167,7 @@ calc_directional_light(DirectionalLight dir_light, vec3 normal, vec3 surface_nor
 		evaluate_normal_map;
     vec3 specular = dir_light.specular * (specular_strength * specular_color);
 
-	float shadow = shadow_calculation(frag_pos_light_space, surface_normal, dir_light.direction);
+	float shadow = shadow_calculation(frag_pos_light_space, surface_normal, dir_light.direction, debug_gui_state);
 	// float shadow = 0;
     return (ambient + (diffuse + specular)*(1-shadow));
 }
