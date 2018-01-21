@@ -25,6 +25,7 @@
 #include "resources.hpp"
 #include "stb_image.h"
 #include "entities.hpp"
+#include "model.hpp"
 
 lt_global_variable lt::Logger logger("main");
 lt_global_variable bool g_display_debug_gui = true;
@@ -384,6 +385,8 @@ main(void)
 	ShadowMap shadow_map = create_shadow_map(shadow_map_width, shadow_map_height, shadow_map_shader);
 	Mesh *shadow_map_surface = resources.load_shadow_map_render_surface(shadow_map.texture);
 
+	Mesh *pallet = model_load("pallet/pallet.obj", resources);
+
 	// ----------------------------------------------------------
 	// Entities
 	// ----------------------------------------------------------
@@ -404,7 +407,7 @@ main(void)
 		Vec3f(1),
 		Vec3f(2),
 	};
-	for (i32 i = 0; i < LT_Count(positions); i++)
+	for (usize i = 0; i < LT_Count(positions); i++)
 	{
 		Mat4f transform;
 		transform = lt::translation(transform, positions[i]);
@@ -487,7 +490,7 @@ main(void)
     // Define variables to control time
     const f64 DESIRED_FPS = 60.0;
     const f64 DESIRED_FRAMETIME = 1.0 / DESIRED_FPS;
-    const u32 MAX_STEPS = 6;
+    const i32 MAX_STEPS = 6;
     const f64 MAX_DELTA_TIME = 1.0;
 
     f64 new_time, total_delta, delta;
@@ -527,7 +530,7 @@ main(void)
 			context.disable_multisampling();
 
         total_delta = g_debug_gui_state.frame_time / DESIRED_FRAMETIME;
-        u32 loops = 0;
+        i32 loops = 0;
         while (total_delta > 0.0 && loops < MAX_STEPS)
         {
             delta = std::min(total_delta, MAX_DELTA_TIME);
@@ -536,7 +539,7 @@ main(void)
 
             total_delta -= delta;
             loops++;
-        }
+       }
 
 		// Render first to depth map
 		glViewport(0, 0, shadow_map_width, shadow_map_height);

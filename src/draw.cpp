@@ -53,16 +53,17 @@ draw_shadow_map(Mesh *mesh, Shader &shadow_map_render_shader, GLContext &context
 	context.use_shader(shadow_map_render_shader);
 
 	glActiveTexture(GL_TEXTURE0); // activate proper texture unit before binding
-	string name = mesh->textures[0].type;
-	LT_Assert(name == "texture_shadow_map");
-
-	glBindTexture(GL_TEXTURE_2D, mesh->textures[0].id);
-
 	context.bind_vao(mesh->vao);
-	glDrawElements(GL_TRIANGLES, mesh->number_of_indices(), GL_UNSIGNED_INT, 0);
-	context.unbind_vao();
+	for (usize i = 0; i < mesh->submeshes.size(); i++)
+	{
+		Submesh sm = mesh->submeshes[i];
+		LT_Assert(sm.textures.size() == 1);
+		LT_Assert(sm.textures[0].type == "texture_shadow_map");
 
-	glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, sm.textures[0].id);
+		glDrawElements(GL_TRIANGLES, sm.num_indices, GL_UNSIGNED_INT, (const void*)sm.start_index);
+	}
+	context.unbind_vao();
 }
 
 void
@@ -103,7 +104,11 @@ draw_entities(const Entities &e, const Camera &camera, GLContext &context, Shado
 			shader->set_matrix("view", camera.view_matrix());
 
 			context.bind_vao(mesh->vao);
-			glDrawElements(GL_TRIANGLES, mesh->number_of_indices(), GL_UNSIGNED_INT, 0);
+			for (usize i = 0; i < mesh->submeshes.size(); i++)
+			{
+				Submesh sm = mesh->submeshes[i];
+				glDrawElements(GL_TRIANGLES, sm.num_indices, GL_UNSIGNED_INT, (const void*)sm.start_index);
+			}
 			context.unbind_vao();
 
 			LightEmmiter le = e.light_emmiter[handle];
@@ -143,26 +148,28 @@ draw_entities(const Entities &e, const Camera &camera, GLContext &context, Shado
 				glBindTexture(GL_TEXTURE_2D, shadow_map.texture);
 			}
 
-			bool use_normal_map = false;
-
-			for (usize i = 0; i < mesh->textures.size(); i++)
-			{
-				string name = mesh->textures[i].type;
-				u32 texture_unit = shader->texture_unit(name);
-				glActiveTexture(GL_TEXTURE0 + texture_unit);
-
-				if (name == "material.texture_normal1")
-					use_normal_map = true;
-
-				// shader->set1i(name.c_str(), texture_unit);
-				glBindTexture(GL_TEXTURE_2D, mesh->textures[i].id);
-			}
-
-			shader->set1i("material.use_normal_map", use_normal_map);
-
-			// draw mesh
 			context.bind_vao(mesh->vao);
-			glDrawElements(GL_TRIANGLES, mesh->number_of_indices(), GL_UNSIGNED_INT, 0);
+			for (usize i = 0; i < mesh->submeshes.size(); i++)
+			{
+				bool use_normal_map = false;
+				Submesh sm = mesh->submeshes[i];
+
+				for (usize t = 0; t < sm.textures.size(); t++)
+				{
+					string name = sm.textures[t].type;
+					u32 texture_unit = shader->texture_unit(name);
+					glActiveTexture(GL_TEXTURE0 + texture_unit);
+
+					if (name == "material.texture_normal1")
+						use_normal_map = true;
+
+					// shader->set1i(name.c_str(), texture_unit);
+					glBindTexture(GL_TEXTURE_2D, sm.textures[t].id);
+				}
+				shader->set1i("material.use_normal_map", use_normal_map);
+
+				glDrawElements(GL_TRIANGLES, sm.num_indices, GL_UNSIGNED_INT, (const void*)sm.start_index);
+			}
 			context.unbind_vao();
 
 			// always good practice to set everything back to defaults once configured.
@@ -180,9 +187,15 @@ draw_skybox(const Mesh *mesh, Shader &shader, const Mat4f &view, GLContext &cont
 	shader.set_matrix("view", view);
 
     context.bind_vao(mesh->vao);
-	glActiveTexture(GL_TEXTURE0 + shader.texture_unit("skybox"));
-	glBindTexture(GL_TEXTURE_CUBE_MAP, mesh->textures[0].id);
-    glDrawElements(GL_TRIANGLES, mesh->number_of_indices(), GL_UNSIGNED_INT, 0);
+	for (usize i = 0; i < mesh->submeshes.size(); i++)
+	{
+		Submesh sm = mesh->submeshes[i];
+		LT_Assert(sm.textures.size() == 1);
+
+		glActiveTexture(GL_TEXTURE0 + shader.texture_unit("skybox"));
+		glBindTexture(GL_TEXTURE_CUBE_MAP, sm.textures[0].id);
+		glDrawElements(GL_TRIANGLES, sm.num_indices, GL_UNSIGNED_INT, (const void*)sm.start_index);
+	}
     context.unbind_vao();
 
 	glDepthFunc(GL_LESS);

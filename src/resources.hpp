@@ -39,7 +39,6 @@ struct Vertex_PUNTB
 
 static_assert(sizeof(Vertex_PUNTB) == sizeof(f32)*14, "Vertex_PUNTB should be packed.");
 
-
 struct Resources
 {
 	Mesh meshes[MAX_NUM_MESHES] = {};
@@ -49,13 +48,15 @@ struct Resources
 	Mesh *load_unit_plane(f32 tex_coords_scale, u32 diffuse_texture,
 						  u32 specular_texture, u32 normal_texture = 0);
 	Mesh *load_shadow_map_render_surface(u32 shadow_map_texture);
+	Mesh *load_mesh_from_model(const char *path);
+	Mesh *create_mesh();
 
 private:
-	isize m_mesh_id = 0;
-	inline isize get_new_id()
+	inline i64 get_new_id()
 	{
-		LT_Assert(m_mesh_id < MAX_NUM_MESHES);
-		return m_mesh_id++;
+		lt_local_persist i64 mesh_id = 0;
+		LT_Assert(mesh_id < MAX_NUM_MESHES);
+		return mesh_id++;
 	}
 };
 

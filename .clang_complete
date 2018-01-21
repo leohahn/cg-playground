@@ -1,3 +1,4 @@
+-I./thirdparty
 -I./lt/src
 -I./src
 -DDEV_ENV

@@ -2,6 +2,7 @@
 #include "lt/src/lt_utils.hpp"
 #include "lt_math.hpp"
 #include "glad/glad.h"
+#include <cstring>
 
 lt_global_variable lt::Logger logger("resources");
 
@@ -216,6 +217,18 @@ setup_mesh_buffers_puntb(Mesh &m)
 }
 
 Mesh *
+Resources::create_mesh()
+{
+	const i64 this_mesh_id = get_new_id();
+	Mesh *mesh = &meshes[this_mesh_id];
+
+	std::memset(mesh, 0, sizeof(Mesh));
+	mesh->id = this_mesh_id;
+	
+	return &meshes[this_mesh_id];
+}
+
+Mesh *
 Resources::load_cubemap(u32 cubemap_texture)
 {
 	const i64 this_mesh_id = get_new_id();
@@ -223,7 +236,6 @@ Resources::load_cubemap(u32 cubemap_texture)
 	Mesh *mesh = &meshes[this_mesh_id];
 	mesh->id = this_mesh_id;
 	mesh->vertices = std::vector<Vec3f>(LT_Count(UNIT_CUBE_VERTICES));
-	mesh->textures.push_back(Texture(cubemap_texture, "texture_cubemap"));
 
 	for (usize i = 0; i < mesh->vertices.size(); i++)
 		mesh->vertices[i] = UNIT_CUBE_VERTICES[i];
@@ -236,6 +248,12 @@ Resources::load_cubemap(u32 cubemap_texture)
 		face.val[2] = UNIT_CUBE_INDICES[i];
 		mesh->faces.push_back(face);
 	}
+
+	Submesh sm = {};
+	sm.start_index = 0;
+	sm.num_indices = mesh->number_of_indices();
+	sm.textures.push_back(Texture(cubemap_texture, "texture_cubemap"));
+	mesh->submeshes.push_back(sm);
 
 	setup_mesh_buffers_p(*mesh);
 	return mesh;
@@ -252,9 +270,6 @@ Resources::load_shadow_map_render_surface(u32 shadow_map_texture)
 	mesh->id = this_mesh_id;
 	mesh->vertices = std::vector<Vec3f>(NUM_VERTICES);
 	mesh->tex_coords = std::vector<Vec2f>(NUM_VERTICES);
-
-	// Add all textures to the mesh
-	mesh->textures.push_back(Texture(shadow_map_texture, "texture_shadow_map"));
 
 	// Add all only the positions
 	for (usize i = 0; i < NUM_VERTICES; i++)
@@ -274,6 +289,12 @@ Resources::load_shadow_map_render_surface(u32 shadow_map_texture)
 		mesh->faces_textures.push_back(std::vector<isize>{0, 1, 2});
 	}
 
+	Submesh sm = {};
+	sm.start_index = 0;
+	sm.num_indices = mesh->number_of_indices();
+	sm.textures.push_back(Texture(shadow_map_texture, "texture_shadow_map"));
+	mesh->submeshes.push_back(sm);
+
 	setup_mesh_buffers_pu(*mesh);
     return mesh;
 }
@@ -290,13 +311,6 @@ Resources::load_unit_cube(u32 diffuse_texture, u32 specular_texture, u32 normal_
 	mesh->normals = std::vector<Vec3f>(LT_Count(UNIT_CUBE_VERTICES));
 	mesh->tangents = std::vector<Vec3f>(LT_Count(UNIT_CUBE_VERTICES));
 	mesh->bitangents = std::vector<Vec3f>(LT_Count(UNIT_CUBE_VERTICES));
-
-	// FIXME: remove the hardcoded texture strings.
-	// figure out a better way to abstract this (maybe after implementing a deffered renderer.
-	mesh->textures.push_back(Texture(diffuse_texture, "material.texture_diffuse1"));
-    mesh->textures.push_back(Texture(specular_texture, "material.texture_specular1"));
-	if (normal_texture)
-		mesh->textures.push_back(Texture(normal_texture, "material.texture_normal1"));
 
 	// Add all only the positions
 	for (usize i = 0; i < LT_Count(UNIT_CUBE_VERTICES); i++)
@@ -362,6 +376,15 @@ Resources::load_unit_cube(u32 diffuse_texture, u32 specular_texture, u32 normal_
 		mesh->faces_textures.push_back(std::vector<isize>{0, 1, 2});
 	}
 
+	Submesh sm = {};
+	sm.start_index = 0;
+	sm.num_indices = mesh->number_of_indices();
+	sm.textures.push_back(Texture(diffuse_texture, "material.texture_diffuse1"));
+    sm.textures.push_back(Texture(specular_texture, "material.texture_specular1"));
+	if (normal_texture)
+		sm.textures.push_back(Texture(normal_texture, "material.texture_normal1"));
+	mesh->submeshes.push_back(sm);
+
 	setup_mesh_buffers_puntb(*mesh);
     return mesh;
 }
@@ -379,12 +402,6 @@ Resources::load_unit_plane(f32 tex_coords_scale, u32 diffuse_texture,
 	mesh->normals = std::vector<Vec3f>(LT_Count(UNIT_PLANE_VERTICES));
 	mesh->tangents = std::vector<Vec3f>(LT_Count(UNIT_PLANE_VERTICES));
 	mesh->bitangents = std::vector<Vec3f>(LT_Count(UNIT_PLANE_VERTICES));
-
-	// Add all textures to the mesh
-	mesh->textures.push_back(Texture(diffuse_texture, "material.texture_diffuse1"));
-    mesh->textures.push_back(Texture(specular_texture, "material.texture_specular1"));
-	if (normal_texture)
-		mesh->textures.push_back(Texture(normal_texture, "material.texture_normal1"));
 
 	// Add all only the positions
 	for (usize i = 0; i < LT_Count(UNIT_PLANE_VERTICES); i++)
@@ -449,6 +466,14 @@ Resources::load_unit_plane(f32 tex_coords_scale, u32 diffuse_texture,
 		mesh->faces.push_back(face);
 		mesh->faces_textures.push_back(std::vector<isize>{0, 1, 2});
 	}
+	Submesh sm = {};
+	sm.start_index = 0;
+	sm.num_indices = mesh->number_of_indices();
+	sm.textures.push_back(Texture(diffuse_texture, "material.texture_diffuse1"));
+    sm.textures.push_back(Texture(specular_texture, "material.texture_specular1"));
+	if (normal_texture)
+		sm.textures.push_back(Texture(normal_texture, "material.texture_normal1"));
+	mesh->submeshes.push_back(sm);
 
 	setup_mesh_buffers_puntb(*mesh);
     return mesh;
