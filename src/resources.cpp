@@ -3,6 +3,11 @@
 #include "lt_math.hpp"
 #include "glad/glad.h"
 #include <cstring>
+#include "gl_resources.hpp"
+
+#include <assimp/Importer.hpp>
+#include <assimp/scene.h>
+#include <assimp/postprocess.h>
 
 lt_global_variable lt::Logger logger("resources");
 
@@ -214,18 +219,6 @@ setup_mesh_buffers_puntb(Mesh &m)
     glEnableVertexAttribArray(4);
 
     glBindVertexArray(0);
-}
-
-Mesh *
-Resources::create_mesh()
-{
-	const i64 this_mesh_id = get_new_id();
-	Mesh *mesh = &meshes[this_mesh_id];
-
-	std::memset(mesh, 0, sizeof(Mesh));
-	mesh->id = this_mesh_id;
-	
-	return &meshes[this_mesh_id];
 }
 
 Mesh *
@@ -477,4 +470,106 @@ Resources::load_unit_plane(f32 tex_coords_scale, u32 diffuse_texture,
 
 	setup_mesh_buffers_puntb(*mesh);
     return mesh;
+}
+
+Mesh *
+Resources::load_mesh_from_model(const char *path, u32 diffuse_texture, u32 specular_texture,
+								u32 normal_texture, Resources &resources)
+{
+	using std::string;
+	Assimp::Importer importer;
+
+    const string fullpath = string(RESOURCES_PATH) + string(path);
+
+	const aiScene *scene = importer.ReadFile(
+		fullpath,
+		aiProcess_CalcTangentSpace | aiProcess_Triangulate | aiProcess_JoinIdenticalVertices
+		| aiProcess_FlipUVs
+	);
+
+	if (scene && scene->mRootNode && !(scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE))
+	{
+		// For simplicity, assert that the number of meshes is one
+		LT_Assert(scene->mNumMeshes == 1);
+
+		const i64 new_id = get_new_id();
+		Mesh *mesh = &meshes[new_id];
+
+		aiMesh *ai_mesh = scene->mMeshes[0];
+
+		// TODO: take into account the material information
+		// ignore know since the .obj being used is not really well formed
+		// aiString name;
+		// aiMaterial *ai_material = scene->mMaterials[0];
+		// ai_material->Get(AI_MATKEY_NAME, name);
+
+		LT_Assert(ai_mesh->mTextureCoords[0]);
+
+		for (isize i = 0; i < ai_mesh->mNumVertices; i++)
+		{
+			{
+				aiVector3D v = ai_mesh->mVertices[i];
+				mesh->vertices.push_back(Vec3f(v.x, v.y, v.z));
+			}
+			if (ai_mesh->mTextureCoords[0])
+			{
+				// FIXME: currently ignoring 3d texture coordinates
+				aiVector3D t = ai_mesh->mTextureCoords[0][i];
+				mesh->tex_coords.push_back(Vec2f(t.x, t.y));
+			}
+			if (ai_mesh->mNormals)
+			{
+				aiVector3D n = ai_mesh->mNormals[i];
+				mesh->normals.push_back(Vec3f(n.x, n.y, n.z));
+			}
+			if (ai_mesh->mTangents)
+			{
+				aiVector3D t = ai_mesh->mTangents[i];
+				mesh->tangents.push_back(Vec3f(t.x, t.y, t.z));
+			}
+			if (ai_mesh->mBitangents)
+			{
+				aiVector3D b = ai_mesh->mBitangents[i];
+				mesh->bitangents.push_back(Vec3f(b.x, b.y, b.z));
+			}
+		}
+		for (isize i = 0; i < ai_mesh->mNumFaces; i++)
+		{
+			aiFace ai_face = ai_mesh->mFaces[i];
+			LT_Assert(ai_face.mNumIndices == 3);
+
+			Face face;
+			face.val[0] = ai_face.mIndices[0];
+			face.val[1] = ai_face.mIndices[1];
+			face.val[2] = ai_face.mIndices[2];
+
+			logger.log("Pusing face back");
+			mesh->faces.push_back(face);
+		}
+
+		LT_Assert(mesh->vertices.size());
+		LT_Assert(mesh->tex_coords.size());
+		LT_Assert(mesh->normals.size());
+		LT_Assert(mesh->tangents.size());
+		LT_Assert(mesh->bitangents.size());
+
+		Submesh sm = {};
+		sm.start_index = 0;
+		sm.num_indices = mesh->number_of_indices();
+		sm.textures.push_back(Texture(diffuse_texture, "material.texture_diffuse1"));
+		sm.textures.push_back(Texture(specular_texture, "material.texture_specular1"));
+		if (normal_texture)
+			sm.textures.push_back(Texture(normal_texture, "material.texture_normal1"));
+		mesh->submeshes.push_back(sm);
+
+		setup_mesh_buffers_puntb(*mesh);
+		return mesh;
+	}
+	else
+	{
+		logger.error("Failed to load the model: ", path);
+		logger.error(importer.GetErrorString());
+		return nullptr;
+	}
+	
 }

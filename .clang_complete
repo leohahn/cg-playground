@@ -1,5 +1,6 @@
--I./thirdparty
 -I./lt/src
 -I./src
+-I./thirdparty
+-I./thirdparty/glad
 -DDEV_ENV
 -std=c++14

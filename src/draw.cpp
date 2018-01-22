@@ -129,7 +129,6 @@ draw_entities(const Entities &e, const Camera &camera, GLContext &context, Shado
 		else if ((e.mask[handle] & RENDER_MASK) == RENDER_MASK)
 		{
 			using std::string;
-
 			Shader *shader = e.renderable[handle].shader;
 			Mesh *mesh = e.renderable[handle].mesh;
 

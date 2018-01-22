@@ -48,8 +48,8 @@ struct Resources
 	Mesh *load_unit_plane(f32 tex_coords_scale, u32 diffuse_texture,
 						  u32 specular_texture, u32 normal_texture = 0);
 	Mesh *load_shadow_map_render_surface(u32 shadow_map_texture);
-	Mesh *load_mesh_from_model(const char *path);
-	Mesh *create_mesh();
+	Mesh *load_mesh_from_model(const char *path, u32 diffuse_texture, u32 specular_texture,
+							   u32 normal_texture, Resources &resources);
 
 private:
 	inline i64 get_new_id()

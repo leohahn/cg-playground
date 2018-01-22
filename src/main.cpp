@@ -25,7 +25,6 @@
 #include "resources.hpp"
 #include "stb_image.h"
 #include "entities.hpp"
-#include "model.hpp"
 
 lt_global_variable lt::Logger logger("main");
 lt_global_variable bool g_display_debug_gui = true;
@@ -385,20 +384,30 @@ main(void)
 	ShadowMap shadow_map = create_shadow_map(shadow_map_width, shadow_map_height, shadow_map_shader);
 	Mesh *shadow_map_surface = resources.load_shadow_map_render_surface(shadow_map.texture);
 
-	Mesh *pallet = model_load("pallet/pallet.obj", resources);
+    const u32 pallet_texture_diffuse = load_texture("pallet/diffus.tga", TextureFormat_SRGB, PixelFormat_RGB);
+    const u32 pallet_texture_specular = load_texture("pallet/specular.tga", TextureFormat_SRGB, PixelFormat_RGB);
+    const u32 pallet_texture_normal = load_texture("pallet/normal.tga", TextureFormat_RGB, PixelFormat_RGB);
 
 	// ----------------------------------------------------------
 	// Entities
 	// ----------------------------------------------------------
 	Entities entities = {};
 
+	// Model
+	Mat4f pallet_transform;
+	pallet_transform = lt::translation(pallet_transform, Vec3f(10, 1, 0));
+	pallet_transform = lt::scale(pallet_transform, Vec3f(0.02));
+	create_entity_from_model(entities, resources, "pallet/pallet.obj", &basic_shader,
+							 pallet_transform, 32.0f, pallet_texture_diffuse,
+							 pallet_texture_specular, pallet_texture_normal);
+	
 	// cubes
 	const Vec3f positions[] = {
 		Vec3f(0.0f, 2.0f, 0.0f),
 		Vec3f(4.0f, 3.0f, 0.0f),
 		Vec3f(1.0f, 5.0f, 2.0f),
 		Vec3f(-5.0f, 2.0f, -1.0f),
-		Vec3f(-3.0f, 1.1f, -7.0f),
+		Vec3f(-3.0f, 5.1f, -7.0f),
 	};
 	const Vec3f scales[] = {
 		Vec3f(1),
@@ -413,7 +422,7 @@ main(void)
 		transform = lt::translation(transform, positions[i]);
 		transform = lt::scale(transform, scales[i]);
 		create_textured_cube(&entities, &resources, &basic_shader, transform, 128,
-							 nullptr, box_texture_diffuse, box_texture_diffuse, box_texture_normal);
+							 box_texture_diffuse, box_texture_diffuse, box_texture_normal);
 	}
 	//
 	// Light
@@ -457,7 +466,7 @@ main(void)
 		transform = lt::translation(transform, Vec3f(3, 5, 0));
 		transform = lt::scale(transform, Vec3f(0.1f));
 
-		create_point_light(&entities, &resources, &light_shader, transform, le, nullptr, 0, 0);
+		create_point_light(&entities, &resources, &light_shader, transform, le, 0, 0);
 	}
 	// WALL
 	{
@@ -466,7 +475,7 @@ main(void)
 		transform = lt::rotation_y(transform, 90.0f);
 		transform = lt::scale(transform, Vec3f(8.0f));
 		create_plane(&entities, &resources, &basic_shader, transform, 32, 5.0f,
-					 nullptr, wall_texture_diffuse, wall_texture_diffuse, wall_texture_normal);
+					 wall_texture_diffuse, wall_texture_diffuse, wall_texture_normal);
 	}
 	// FLOOR
 	{
@@ -475,7 +484,7 @@ main(void)
 		transform = lt::scale(transform, Vec3f(20.0f));
 
 		create_plane(&entities, &resources, &basic_shader, transform, 32, 10.0f,
-					 nullptr, floor_texture_diffuse, floor_texture_diffuse, floor_texture_normal);
+					 floor_texture_diffuse, floor_texture_diffuse, floor_texture_normal);
 	}
 	// Skybox
 	const Mesh *skybox_mesh = resources.load_cubemap(skybox);
@@ -565,7 +574,11 @@ main(void)
 			basic_shader.set1i("debug_gui_state.enable_normal_mapping", g_debug_gui_state.enable_normal_mapping);
 			basic_shader.set1f("debug_gui_state.pcf_texel_offset", g_debug_gui_state.pcf_texel_offset);
 			basic_shader.set1i("debug_gui_state.pcf_window_side", g_debug_gui_state.pcf_window_side);
+
+			glDisable(GL_CULL_FACE);
 			draw_entities(entities, camera, context, shadow_map);
+			glEnable(GL_CULL_FACE);
+
 			draw_skybox(skybox_mesh, skybox_shader, camera.view_matrix(), context);
 		}
 
