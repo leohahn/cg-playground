@@ -1,14 +1,19 @@
 #ifndef __DEBUG_GUI_HPP__
 #define __DEBUG_GUI_HPP__
 
-#include <vector>
-#include <utility>
+// #include <vector>
+// #include <utility>
+#include <unordered_map>
 #include "lt_core.hpp"
 #include "lt_math.hpp"
+#include "entities.hpp"
 
 struct GLFWwindow;
 
-struct DebugGuiState
+namespace dgui
+{
+
+struct State
 {
 	bool enable_normal_mapping = true;
 	bool enable_multisampling = true;
@@ -19,19 +24,22 @@ struct DebugGuiState
 	Vec3f camera_front;
 	f32 pcf_texel_offset = 1.0f;
 	i32 pcf_window_side = 3;
-	std::vector<std::pair<std::string, i64>> entity_names_and_ids;
+	std::unordered_map<EntityHandle, std::string> entities_map;
+	EntityHandle selected_entity_handle = -1;
 
-	static DebugGuiState &instance()
+	static State &instance()
 	{
-		lt_local_persist DebugGuiState state;
+		lt_local_persist State state;
 		return state;
 	}
 
 private:
-	DebugGuiState() {};
+	State() {};
 };
 
-void debug_gui_draw(GLFWwindow *window);
-void debug_gui_init(GLFWwindow *window);
+void draw(GLFWwindow *window);
+void init(GLFWwindow *window);
+
+};
 
 #endif // __DEBUG_GUI_HPP__

@@ -42,7 +42,7 @@ create_textured_cube(Entities *entities, Resources *resources, Shader *shader,
 	entities->transform[h].mat = transform;
 	entities->name[h] = std::string("cube_") + std::to_string(h);
 
-	DebugGuiState::instance().entity_names_and_ids.push_back(std::make_pair(entities->name[h], h));
+	dgui::State::instance().entities_map.insert(std::make_pair(h, entities->name[h]));
 	return h;
 }
 
@@ -66,7 +66,7 @@ create_entity_from_model(Entities &entities, Resources &resources, const char *p
 	i32 dot_pos = path_str.find_first_of(".");
 	entities.name[h] = path_str.substr(0, dot_pos) + "_" + std::to_string(h);
 
-	DebugGuiState::instance().entity_names_and_ids.push_back(std::make_pair(entities.name[h], h));
+	dgui::State::instance().entities_map.insert(std::make_pair(h, entities.name[h]));
 	return h;
 }
 
@@ -85,7 +85,7 @@ create_point_light(Entities *entities, Resources *resources, Shader *shader, con
 	entities->light_emmiter[h] = light_emmiter;
 	entities->name[h] = std::string("point_light_") + std::to_string(h);
 
-	DebugGuiState::instance().entity_names_and_ids.push_back(std::make_pair(entities->name[h], h));
+	dgui::State::instance().entities_map.insert(std::make_pair(h, entities->name[h]));
 	return h;
 }
 
@@ -105,7 +105,7 @@ create_plane(Entities *entities, Resources *resources, Shader *shader, const Mat
 	entities->transform[h].mat = transform;
 	entities->name[h] = std::string("plane_") + std::to_string(h);
 
-	DebugGuiState::instance().entity_names_and_ids.push_back(std::make_pair(entities->name[h], h));
+	dgui::State::instance().entities_map.insert(std::make_pair(h, entities->name[h]));
 	return h;
 }
 
@@ -119,6 +119,6 @@ create_skybox(Entities *entities, Resources *resources, Shader *shader, u32 skyb
 	entities->renderable[h].shader = shader;
 	entities->name[h] = std::string("skybox_") + std::to_string(h);
 
-	DebugGuiState::instance().entity_names_and_ids.push_back(std::make_pair(entities->name[h], h));
+	dgui::State::instance().entities_map.insert(std::make_pair(h, entities->name[h]));
 	return h;
 }

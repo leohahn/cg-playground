@@ -95,6 +95,7 @@ process_input(GLFWwindow *win, Key *kb)
 		g_display_debug_gui = !g_display_debug_gui;
 }
 
+#ifdef DEV_ENV // NOTE: Do I need to wrap this function around ifdefs?
 lt_internal void
 process_watcher_events(Shader &basic_shader, Shader &light_shader)
 {
@@ -115,6 +116,7 @@ process_watcher_events(Shader &basic_shader, Shader &light_shader)
         watcher_event_peeked();
     }
 }
+#endif
 
 lt_internal GLFWwindow *
 create_window_and_set_context(const char *title, i32 width, i32 height)
@@ -149,7 +151,7 @@ create_window_and_set_context(const char *title, i32 width, i32 height)
 }
 
 void
-game_update(Key *kb, Camera& camera, f64 delta, DebugGuiState *state)
+game_update(Key *kb, Camera& camera, f64 delta, dgui::State &state)
 {
     // Move
     if (kb[GLFW_KEY_A].is_pressed)
@@ -177,8 +179,8 @@ game_update(Key *kb, Camera& camera, f64 delta, DebugGuiState *state)
     if (kb[GLFW_KEY_DOWN].is_pressed)
         camera.rotate(Camera::RotationAxis::Right, -delta);
 	
-	state->camera_pos = camera.frustum.position;
-	state->camera_front = camera.frustum.front.v;
+	state.camera_pos = camera.frustum.position;
+	state.camera_front = camera.frustum.front.v;
 }
 
 enum TextureFormat
@@ -493,7 +495,7 @@ main(void)
     skybox_shader.setup_projection_matrix(ASPECT_RATIO, context);
 
 	// Initialize the DEBUG GUI
-	debug_gui_init(window);
+	dgui::init(window);
 
     // Define variables to control time
     const f64 DESIRED_FPS = 60.0;
@@ -512,9 +514,9 @@ main(void)
     {
         // Update frame information.
         new_time = glfwGetTime();
-		DebugGuiState::instance().frame_time = new_time - previous_time;
+		dgui::State::instance().frame_time = new_time - previous_time;
         previous_time = new_time;
-		DebugGuiState::instance().fps = 1 / DebugGuiState::instance().frame_time; // used for logging
+		dgui::State::instance().fps = 1 / dgui::State::instance().frame_time; // used for logging
 
         // Process input and watcher events.
         process_input(window, g_keyboard);
@@ -532,18 +534,18 @@ main(void)
             continue;
         }
 
-		if (DebugGuiState::instance().enable_multisampling)
+		if (dgui::State::instance().enable_multisampling)
 			context.enable_multisampling();
 		else
 			context.disable_multisampling();
 
-        total_delta = DebugGuiState::instance().frame_time / DESIRED_FRAMETIME;
+        total_delta = dgui::State::instance().frame_time / DESIRED_FRAMETIME;
         i32 loops = 0;
         while (total_delta > 0.0 && loops < MAX_STEPS)
         {
             delta = std::min(total_delta, MAX_DELTA_TIME);
 
-            game_update(g_keyboard, camera, delta, &DebugGuiState::instance());
+            game_update(g_keyboard, camera, delta, dgui::State::instance());
 
             total_delta -= delta;
             loops++;
@@ -562,7 +564,7 @@ main(void)
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		if (DebugGuiState::instance().draw_shadow_map)
+		if (dgui::State::instance().draw_shadow_map)
 		{
 			// Draws the shadowmap instead of the scene
 			draw_shadow_map(shadow_map_surface, shadow_map_render_shader, context);
@@ -570,9 +572,9 @@ main(void)
 		else
 		{
 			context.use_shader(basic_shader);
-			basic_shader.set1i("debug_gui_state.enable_normal_mapping", DebugGuiState::instance().enable_normal_mapping);
-			basic_shader.set1f("debug_gui_state.pcf_texel_offset", DebugGuiState::instance().pcf_texel_offset);
-			basic_shader.set1i("debug_gui_state.pcf_window_side", DebugGuiState::instance().pcf_window_side);
+			basic_shader.set1i("debug_gui_state.enable_normal_mapping", dgui::State::instance().enable_normal_mapping);
+			basic_shader.set1f("debug_gui_state.pcf_texel_offset", dgui::State::instance().pcf_texel_offset);
+			basic_shader.set1i("debug_gui_state.pcf_window_side", dgui::State::instance().pcf_window_side);
 
 			// glEnable(GL_CULL_FACE);
 			draw_entities(entities, camera, context, shadow_map);
@@ -583,7 +585,7 @@ main(void)
 
 		if (g_display_debug_gui)
 		{
-			debug_gui_draw(window);
+			dgui::draw(window);
 		}
 
         glfwSwapBuffers(window);

@@ -12,7 +12,7 @@ using std::cout;
 using std::endl;
 
 void
-debug_gui_init(GLFWwindow *window)
+dgui::init(GLFWwindow *window)
 {
 	 ImGui_ImplGlfwGL3_Init(window, true);
 	 // ImGui::StyleColorsDark();
@@ -20,9 +20,9 @@ debug_gui_init(GLFWwindow *window)
 }
 
 void
-debug_gui_draw(GLFWwindow *window)
+dgui::draw(GLFWwindow *window)
 {
-	auto &state = DebugGuiState::instance();
+	auto &state = State::instance();
 
 	ImGui_ImplGlfwGL3_NewFrame();
 
@@ -50,10 +50,13 @@ debug_gui_draw(GLFWwindow *window)
 		}
 		if (ImGui::CollapsingHeader("Entities"))
 		{
-			for (const auto &it : state.entity_names_and_ids)
+			for (const auto &it : state.entities_map)
 			{
-				// TODO: Make the entities selectable
-				ImGui::Selectable(it.first.c_str());
+				if (ImGui::Selectable(it.second.c_str(), it.first == state.selected_entity_handle, 0))
+				{
+					if (it.first == state.selected_entity_handle) state.selected_entity_handle = -1;
+					else state.selected_entity_handle = it.first; 
+				}
 			}
 		}
 		ImGui::End();
