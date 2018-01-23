@@ -543,7 +543,6 @@ Resources::load_mesh_from_model(const char *path, u32 diffuse_texture, u32 specu
 			face.val[1] = ai_face.mIndices[1];
 			face.val[2] = ai_face.mIndices[2];
 
-			logger.log("Pusing face back");
 			mesh->faces.push_back(face);
 		}
 

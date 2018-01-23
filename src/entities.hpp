@@ -57,6 +57,7 @@ struct Entities
 	Transform     transform[MAX_ENTITIES];
 	Renderable    renderable[MAX_ENTITIES];
 	LightEmmiter  light_emmiter[MAX_ENTITIES];
+	std::string   name[MAX_ENTITIES];
 	// ShadowCaster  shadow_caster[MAX_ENTITIES];
 
 	EntityHandle create(u32 components_mask);

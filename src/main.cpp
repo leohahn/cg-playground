@@ -28,7 +28,6 @@
 
 lt_global_variable lt::Logger logger("main");
 lt_global_variable bool g_display_debug_gui = true;
-lt_global_variable DebugGuiState g_debug_gui_state;
 
 struct Key
 {
@@ -296,8 +295,8 @@ main(void)
     /* ==================================================================================
      *     OpenGL and GLFW initialization
      * ================================================================================== */
-    const i32 WINDOW_WIDTH = 1024;
-    const i32 WINDOW_HEIGHT = 768;
+    const i32 WINDOW_WIDTH = 1680;
+    const i32 WINDOW_HEIGHT = 1050;
     const f32 ASPECT_RATIO = (f32)WINDOW_WIDTH / WINDOW_HEIGHT;
 
     logger.log("Initializing glfw");
@@ -513,9 +512,9 @@ main(void)
     {
         // Update frame information.
         new_time = glfwGetTime();
-        g_debug_gui_state.frame_time = new_time - previous_time;
+		DebugGuiState::instance().frame_time = new_time - previous_time;
         previous_time = new_time;
-        g_debug_gui_state.fps = 1 / g_debug_gui_state.frame_time; // used for logging
+		DebugGuiState::instance().fps = 1 / DebugGuiState::instance().frame_time; // used for logging
 
         // Process input and watcher events.
         process_input(window, g_keyboard);
@@ -533,18 +532,18 @@ main(void)
             continue;
         }
 
-		if (g_debug_gui_state.enable_multisampling)
+		if (DebugGuiState::instance().enable_multisampling)
 			context.enable_multisampling();
 		else
 			context.disable_multisampling();
 
-        total_delta = g_debug_gui_state.frame_time / DESIRED_FRAMETIME;
+        total_delta = DebugGuiState::instance().frame_time / DESIRED_FRAMETIME;
         i32 loops = 0;
         while (total_delta > 0.0 && loops < MAX_STEPS)
         {
             delta = std::min(total_delta, MAX_DELTA_TIME);
 
-            game_update(g_keyboard, camera, delta, &g_debug_gui_state);
+            game_update(g_keyboard, camera, delta, &DebugGuiState::instance());
 
             total_delta -= delta;
             loops++;
@@ -563,7 +562,7 @@ main(void)
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		if (g_debug_gui_state.draw_shadow_map)
+		if (DebugGuiState::instance().draw_shadow_map)
 		{
 			// Draws the shadowmap instead of the scene
 			draw_shadow_map(shadow_map_surface, shadow_map_render_shader, context);
@@ -571,20 +570,20 @@ main(void)
 		else
 		{
 			context.use_shader(basic_shader);
-			basic_shader.set1i("debug_gui_state.enable_normal_mapping", g_debug_gui_state.enable_normal_mapping);
-			basic_shader.set1f("debug_gui_state.pcf_texel_offset", g_debug_gui_state.pcf_texel_offset);
-			basic_shader.set1i("debug_gui_state.pcf_window_side", g_debug_gui_state.pcf_window_side);
+			basic_shader.set1i("debug_gui_state.enable_normal_mapping", DebugGuiState::instance().enable_normal_mapping);
+			basic_shader.set1f("debug_gui_state.pcf_texel_offset", DebugGuiState::instance().pcf_texel_offset);
+			basic_shader.set1i("debug_gui_state.pcf_window_side", DebugGuiState::instance().pcf_window_side);
 
-			glDisable(GL_CULL_FACE);
+			// glEnable(GL_CULL_FACE);
 			draw_entities(entities, camera, context, shadow_map);
-			glEnable(GL_CULL_FACE);
+			// gl(GL_CULL_FACE);
 
 			draw_skybox(skybox_mesh, skybox_shader, camera.view_matrix(), context);
 		}
 
 		if (g_display_debug_gui)
 		{
-			debug_gui_draw(window, &g_debug_gui_state);
+			debug_gui_draw(window);
 		}
 
         glfwSwapBuffers(window);
