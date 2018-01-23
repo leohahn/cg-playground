@@ -64,19 +64,19 @@ struct Entities
 	void         destroy(EntityHandle id);
 };
 
-EntityHandle create_textured_cube(Entities *entities, Resources *resources, Shader *shader,
+EntityHandle create_textured_cube(Entities &entities, Resources &resources, Shader *shader,
 								  const Mat4f &transform, f32 shininess, u32 diffuse_texture,
 								  u32 specular_texture, u32 normal_texture = 0);
 
-EntityHandle create_point_light(Entities *entities, Resources *resources, Shader *shader,
+EntityHandle create_point_light(Entities &entities, Resources &resources, Shader *shader,
 								const Mat4f &transform, const LightEmmiter &light_emmiter,
 								u32 diffuse_texture, u32 specular_texture);
 
-EntityHandle create_plane(Entities *entities, Resources *resources, Shader *shader, const Mat4f &transform,
+EntityHandle create_plane(Entities &entities, Resources &resources, Shader *shader, const Mat4f &transform,
 						  f32 shininess, f32 tex_coords_scale, u32 diffuse_texture, u32 specular_texture,
 						  u32 normal_texture = 0);
 
-EntityHandle create_skybox(Entities *entities, Resources *resources, Shader *shader, u32 skybox_texture);
+EntityHandle create_skybox(Entities &entities, Resources &resources, Shader *shader, u32 skybox_texture);
 
 EntityHandle create_entity_from_model(Entities &entities, Resources &resources, const char *path,
 									  Shader *shader, const Mat4f &transform, f32 shininess,

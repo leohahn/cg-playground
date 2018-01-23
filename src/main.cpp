@@ -422,7 +422,7 @@ main(void)
 		Mat4f transform;
 		transform = lt::translation(transform, positions[i]);
 		transform = lt::scale(transform, scales[i]);
-		create_textured_cube(&entities, &resources, &basic_shader, transform, 128,
+		create_textured_cube(entities, resources, &basic_shader, transform, 128,
 							 box_texture_diffuse, box_texture_diffuse, box_texture_normal);
 	}
 	//
@@ -467,7 +467,7 @@ main(void)
 		transform = lt::translation(transform, Vec3f(3, 5, 0));
 		transform = lt::scale(transform, Vec3f(0.1f));
 
-		create_point_light(&entities, &resources, &light_shader, transform, le, 0, 0);
+		create_point_light(entities, resources, &light_shader, transform, le, 0, 0);
 	}
 	// WALL
 	{
@@ -475,7 +475,7 @@ main(void)
 		transform = lt::translation(transform, Vec3f(-10, 0, 0));
 		transform = lt::rotation_y(transform, 90.0f);
 		transform = lt::scale(transform, Vec3f(8.0f));
-		create_plane(&entities, &resources, &basic_shader, transform, 32, 5.0f,
+		create_plane(entities, resources, &basic_shader, transform, 32, 5.0f,
 					 wall_texture_diffuse, wall_texture_diffuse, wall_texture_normal);
 	}
 	// FLOOR
@@ -484,7 +484,7 @@ main(void)
 		transform = lt::rotation_x(transform, -90);
 		transform = lt::scale(transform, Vec3f(20.0f));
 
-		create_plane(&entities, &resources, &basic_shader, transform, 32, 10.0f,
+		create_plane(entities, resources, &basic_shader, transform, 32, 10.0f,
 					 floor_texture_diffuse, floor_texture_diffuse, floor_texture_normal);
 	}
 	// Skybox

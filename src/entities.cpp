@@ -27,22 +27,22 @@ Entities::destroy(EntityHandle handle)
 }
 
 EntityHandle
-create_textured_cube(Entities *entities, Resources *resources, Shader *shader,
+create_textured_cube(Entities &entities, Resources &resources, Shader *shader,
 					 const Mat4f &transform, f32 shininess, u32 diffuse_texture,
 					 u32 specular_texture, u32 normal_texture)
 {
-	EntityHandle h = entities->create(ComponentKind_Renderable |
+	EntityHandle h = entities.create(ComponentKind_Renderable |
 									  ComponentKind_Transform |
 									  ComponentKind_ShadowCaster);
 	LT_Assert(h >= 0);
 
-	entities->renderable[h].mesh = resources->load_unit_cube(diffuse_texture, specular_texture, normal_texture);
-	entities->renderable[h].shader = shader;
-	entities->renderable[h].shininess = shininess;
-	entities->transform[h].mat = transform;
-	entities->name[h] = std::string("cube_") + std::to_string(h);
+	entities.renderable[h].mesh = resources.load_unit_cube(diffuse_texture, specular_texture, normal_texture);
+	entities.renderable[h].shader = shader;
+	entities.renderable[h].shininess = shininess;
+	entities.transform[h].mat = transform;
+	entities.name[h] = std::string("cube_") + std::to_string(h);
 
-	dgui::State::instance().entities_map.insert(std::make_pair(h, entities->name[h]));
+	dgui::State::instance().entities_map.insert(std::make_pair(h, entities.name[h]));
 	return h;
 }
 
@@ -71,54 +71,54 @@ create_entity_from_model(Entities &entities, Resources &resources, const char *p
 }
 
 EntityHandle
-create_point_light(Entities *entities, Resources *resources, Shader *shader, const Mat4f &transform,
+create_point_light(Entities &entities, Resources &resources, Shader *shader, const Mat4f &transform,
 				   const LightEmmiter &light_emmiter, u32 diffuse_texture, u32 specular_texture)
 {
-	EntityHandle h = entities->create(ComponentKind_Renderable |
+	EntityHandle h = entities.create(ComponentKind_Renderable |
 									  ComponentKind_Transform |
 									  ComponentKind_LightEmmiter);
 
 	LT_Assert(h >= 0);
-	entities->renderable[h].mesh = resources->load_unit_cube(diffuse_texture, specular_texture);
-	entities->renderable[h].shader = shader;
-	entities->transform[h].mat = transform;
-	entities->light_emmiter[h] = light_emmiter;
-	entities->name[h] = std::string("point_light_") + std::to_string(h);
+	entities.renderable[h].mesh = resources.load_unit_cube(diffuse_texture, specular_texture);
+	entities.renderable[h].shader = shader;
+	entities.transform[h].mat = transform;
+	entities.light_emmiter[h] = light_emmiter;
+	entities.name[h] = std::string("point_light_") + std::to_string(h);
 
-	dgui::State::instance().entities_map.insert(std::make_pair(h, entities->name[h]));
+	dgui::State::instance().entities_map.insert(std::make_pair(h, entities.name[h]));
 	return h;
 }
 
 EntityHandle
-create_plane(Entities *entities, Resources *resources, Shader *shader, const Mat4f &transform,
+create_plane(Entities &entities, Resources &resources, Shader *shader, const Mat4f &transform,
 			 f32 shininess, f32 tex_coords_scale, u32 diffuse_texture, u32 specular_texture, u32 normal_texture)
 {
-	EntityHandle h = entities->create(ComponentKind_Renderable |
+	EntityHandle h = entities.create(ComponentKind_Renderable |
 									  ComponentKind_Transform |
 									  ComponentKind_ShadowCaster);
 	LT_Assert(h >= 0);
 
-	entities->renderable[h].mesh = resources->load_unit_plane(tex_coords_scale, diffuse_texture,
+	entities.renderable[h].mesh = resources.load_unit_plane(tex_coords_scale, diffuse_texture,
 															  specular_texture, normal_texture);
-	entities->renderable[h].shader = shader;
-	entities->renderable[h].shininess = shininess;
-	entities->transform[h].mat = transform;
-	entities->name[h] = std::string("plane_") + std::to_string(h);
+	entities.renderable[h].shader = shader;
+	entities.renderable[h].shininess = shininess;
+	entities.transform[h].mat = transform;
+	entities.name[h] = std::string("plane_") + std::to_string(h);
 
-	dgui::State::instance().entities_map.insert(std::make_pair(h, entities->name[h]));
+	dgui::State::instance().entities_map.insert(std::make_pair(h, entities.name[h]));
 	return h;
 }
 
 EntityHandle
-create_skybox(Entities *entities, Resources *resources, Shader *shader, u32 skybox_texture)
+create_skybox(Entities &entities, Resources &resources, Shader *shader, u32 skybox_texture)
 {
-	EntityHandle h = entities->create(ComponentKind_Renderable);
+	EntityHandle h = entities.create(ComponentKind_Renderable);
 	LT_Assert(h >= 0);
 
-	entities->renderable[h].mesh = resources->load_cubemap(skybox_texture);
-	entities->renderable[h].shader = shader;
-	entities->name[h] = std::string("skybox_") + std::to_string(h);
+	entities.renderable[h].mesh = resources.load_cubemap(skybox_texture);
+	entities.renderable[h].shader = shader;
+	entities.name[h] = std::string("skybox_") + std::to_string(h);
 
-	dgui::State::instance().entities_map.insert(std::make_pair(h, entities->name[h]));
+	dgui::State::instance().entities_map.insert(std::make_pair(h, entities.name[h]));
 	return h;
 }
