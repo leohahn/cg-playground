@@ -87,6 +87,12 @@ dgui::draw(GLFWwindow *window, Entities &entities)
 						ImGui::SameLine();
 						ImGui::PushItemWidth(65);
 						ImGui::DragFloat("z", &transform(2, 3), 0.05f, 0, 0, "%.3f");
+
+						if (entities.has(curr_handle, ComponentKind_LightEmmiter))
+						{
+							LightEmmiter &le = entities.light_emmiter[curr_handle];
+							le.position = Vec3f(transform.col(3));
+						}
 					}
 					ImGui::TreePop();
 				}
