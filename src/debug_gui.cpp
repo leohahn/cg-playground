@@ -57,17 +57,14 @@ dgui::draw(GLFWwindow *window, Entities &entities)
 			EntityHandle node_clicked = -1;
 			for (const auto &it : state.entities_map)
 			{
-				EntityHandle curr_handle = it.first;
+				const EntityHandle curr_handle = it.first;
 
-				logger.log("Curr handle: ", curr_handle);
-				logger.log("Selected handle: ", state.selected_entity_handle);
-
-				ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow
+				const ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow
 					| ImGuiTreeNodeFlags_OpenOnDoubleClick
 					| ((curr_handle == state.selected_entity_handle) ? ImGuiTreeNodeFlags_Selected : 0);
 
 				// ImGui::SetNextTreeNodeOpen(curr_handle == state.selected_entity_handle);
-				bool node_open = ImGui::TreeNodeEx((void*)(intptr_t)curr_handle, node_flags,
+				const bool node_open = ImGui::TreeNodeEx((void*)(intptr_t)curr_handle, node_flags,
 												   "%s", it.second.c_str());
 
 				if (ImGui::IsItemClicked())
@@ -102,8 +99,6 @@ dgui::draw(GLFWwindow *window, Entities &entities)
 		}
 		ImGui::End();
 	}
-
-	ImGui::ShowDemoWindow();
 
 	i32 display_w, display_h;
 	glfwGetFramebufferSize(window, &display_w, &display_h);
