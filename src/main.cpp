@@ -328,6 +328,11 @@ main(void)
         light_shader.setup_projection_matrix(ASPECT_RATIO, context);
     });
 
+    Shader selection_shader("selection.glsl");
+    selection_shader.on_recompilation([&] {
+        selection_shader.setup_projection_matrix(ASPECT_RATIO, context);
+    });
+
     Shader basic_shader("basic.glsl");
 	basic_shader.add_texture("material.texture_diffuse1", context);
 	basic_shader.add_texture("material.texture_specular1", context);
@@ -349,11 +354,9 @@ main(void)
 	shadow_map_render_shader.add_texture("texture_shadow_map", context);
 
     const f32 FIELD_OF_VIEW = 60.0f;
-    const f32 MOVE_SPEED = 0.05f;
+    const f32 MOVE_SPEED = 0.08f;
     const f32 ROTATION_SPEED = 0.02f;
-	// const Vec3f CAMERA_POSITION(0.0f, 5.0f, 10.0f);
 	const Vec3f CAMERA_POSITION(0, 5, 8);
-	// const Vec3f CAMERA_FRONT(0.0f, 0.0f, -1.0f);
 	const Vec3f CAMERA_FRONT(0, 0, -1);
 	const Vec3f UP_WORLD(0.0f, 1.0f, 0.0f);
     Camera camera(CAMERA_POSITION, CAMERA_FRONT, UP_WORLD,
@@ -490,9 +493,11 @@ main(void)
 	// Skybox
 	const Mesh *skybox_mesh = resources.load_cubemap(skybox);
 
+	// Set projection matrices.
     light_shader.setup_projection_matrix(ASPECT_RATIO, context);
     basic_shader.setup_projection_matrix(ASPECT_RATIO, context);
     skybox_shader.setup_projection_matrix(ASPECT_RATIO, context);
+    selection_shader.setup_projection_matrix(ASPECT_RATIO, context);
 
 	// Initialize the DEBUG GUI
 	dgui::init(window);
@@ -516,7 +521,7 @@ main(void)
         new_time = glfwGetTime();
 		dgui::State::instance().frame_time = new_time - previous_time;
         previous_time = new_time;
-		dgui::State::instance().fps = 1 / dgui::State::instance().frame_time; // used for logging
+		dgui::State::instance().fps = 1 / dgui::State::instance().frame_time;
 
         // Process input and watcher events.
         process_input(window, g_keyboard);
@@ -549,7 +554,7 @@ main(void)
 
             total_delta -= delta;
             loops++;
-       }
+		}
 
 		// Render first to depth map
 		glViewport(0, 0, shadow_map_width, shadow_map_height);
@@ -571,8 +576,17 @@ main(void)
 		}
 		else
 		{
+			// Enable stencil testing but disallow writing to it.
+			// Writing to it will be enabled inside draw_entities.
+			glEnable(GL_STENCIL_TEST);
+			glClear(GL_STENCIL_BUFFER_BIT);
+			glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+			glStencilFunc(GL_ALWAYS, 1, 0xff);
+			glStencilMask(0x00);
+
 			context.use_shader(basic_shader);
-			basic_shader.set1i("debug_gui_state.enable_normal_mapping", dgui::State::instance().enable_normal_mapping);
+			basic_shader.set1i("debug_gui_state.enable_normal_mapping",
+							   dgui::State::instance().enable_normal_mapping);
 			basic_shader.set1f("debug_gui_state.pcf_texel_offset", dgui::State::instance().pcf_texel_offset);
 			basic_shader.set1i("debug_gui_state.pcf_window_side", dgui::State::instance().pcf_window_side);
 
@@ -580,6 +594,21 @@ main(void)
 			draw_entities(entities, camera, context, shadow_map);
 			// gl(GL_CULL_FACE);
 
+			if (dgui::State::instance().selected_entity_handle != -1)
+			{
+				glStencilFunc(GL_NOTEQUAL, 1, 0xff);
+				glStencilMask(0x00);
+				glDisable(GL_DEPTH_TEST); // TODO: should I remove this?
+
+				draw_selected_entity(entities, dgui::State::instance().selected_entity_handle,
+									 selection_shader, camera.view_matrix(), context);
+
+				glEnable(GL_DEPTH_TEST); // TODO: should I remove this?
+			}
+
+			glDisable(GL_STENCIL_TEST);
+
+			// Don't update the stencil buffer for the skybox
 			draw_skybox(skybox_mesh, skybox_shader, camera.view_matrix(), context);
 		}
 

@@ -4,7 +4,6 @@
 #include "shader.hpp"
 #include "gl_context.hpp"
 #include "lt_utils.hpp"
-#include "entities.hpp"
 #include "camera.hpp"
 
 lt_internal lt::Logger logger("draw");
@@ -88,12 +87,16 @@ draw_entities_for_shadow_map(const Entities &e, const Mat4f &light_view, const V
 }
 
 void
-draw_entities(const Entities &e, const Camera &camera, GLContext &context, ShadowMap &shadow_map)
+draw_entities(const Entities &e, const Camera &camera, GLContext &context, ShadowMap &shadow_map,
+			  EntityHandle selected_entity)
 {
 	for (isize handle = 0; handle < MAX_ENTITIES; handle++)
 	{
 		if ((e.mask[handle] & LIGHT_MASK) == LIGHT_MASK)
 		{
+			if (handle == selected_entity)
+				glStencilMask(0xff);
+
 			// Draw lights first
 			Shader *shader = e.renderable[handle].shader;
 			Mesh *mesh = e.renderable[handle].mesh;
@@ -129,6 +132,10 @@ draw_entities(const Entities &e, const Camera &camera, GLContext &context, Shado
 		else if ((e.mask[handle] & RENDER_MASK) == RENDER_MASK)
 		{
 			using std::string;
+
+			if (handle == selected_entity)
+				glStencilMask(0xff);
+
 			Shader *shader = e.renderable[handle].shader;
 			Mesh *mesh = e.renderable[handle].mesh;
 
@@ -174,6 +181,8 @@ draw_entities(const Entities &e, const Camera &camera, GLContext &context, Shado
 			// always good practice to set everything back to defaults once configured.
 			glActiveTexture(GL_TEXTURE0);
 		}
+
+		glStencilMask(0x00);
 	}
 }
 
@@ -198,4 +207,21 @@ draw_skybox(const Mesh *mesh, Shader &shader, const Mat4f &view, GLContext &cont
     context.unbind_vao();
 
 	glDepthFunc(GL_LESS);
+}
+
+void
+draw_selected_entity(const Entities &e, EntityHandle handle, Shader &selection_shader,
+					 const Mat4f &view, GLContext &context)
+{
+	Mesh *mesh = e.renderable[handle].mesh;
+	Mat4f transform = e.transform[handle].mat;
+
+	// Draw selection upscaled with a simple shader
+	context.use_shader(selection_shader);
+	selection_shader.set_matrix("view", view);
+	selection_shader.set_matrix("model", transform);
+
+    context.bind_vao(mesh->vao);
+	glDrawElements(GL_TRIANGLES, mesh->number_of_indices(), GL_UNSIGNED_INT, 0);
+    context.unbind_vao();
 }

@@ -4,8 +4,6 @@
 #include <string>
 #include <unordered_map>
 
-#include "glad/glad.h"
-
 #include "gl_resources.hpp"
 #include "lt_fs.hpp"
 #include "lt_utils.hpp"
@@ -136,6 +134,11 @@ Shader::Shader(const char *name)
 	, m_next_texture_unit(0)
 {
     program = make_program(name);
+}
+
+Shader::~Shader()
+{
+	glDeleteProgram(program);
 }
 
 void

@@ -1,9 +1,9 @@
 #ifndef SHADER_H
 #define SHADER_H
+#include "glad/glad.h"
 
 #include <functional>
 #include <unordered_map>
-#include "glad/glad.h"
 #include "lt_core.hpp"
 #include "lt_math.hpp"
 
@@ -12,9 +12,11 @@ struct GLContext;
 struct Shader
 {
     const char *name;
-    GLuint program;
+    u32 program;
 
     explicit Shader(const char *name);
+    ~Shader();
+
     void recompile();
     void on_recompilation(const std::function<void()> &handler);
     void setup_projection_matrix(f32 aspect_ratio, GLContext &context);
@@ -30,11 +32,11 @@ struct Shader
 
 private:
 	i32 m_next_texture_unit;
-    std::unordered_map<std::string, GLuint> m_locations;
-	std::unordered_map<std::string, GLuint> m_texture_units;
+    std::unordered_map<std::string, u32> m_locations;
+	std::unordered_map<std::string, u32> m_texture_units;
     std::function<void()> m_recompilation_handler;
 
-    GLuint get_location(const char *name);
+    u32 get_location(const char *name);
 };
 
 #endif // SHADER_H
