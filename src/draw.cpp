@@ -90,13 +90,10 @@ void
 draw_entities(const Entities &e, const Camera &camera, GLContext &context, ShadowMap &shadow_map,
 			  EntityHandle selected_entity)
 {
-	for (isize handle = 0; handle < MAX_ENTITIES; handle++)
+	for (EntityHandle handle = 0; handle < MAX_ENTITIES; handle++)
 	{
 		if ((e.mask[handle] & LIGHT_MASK) == LIGHT_MASK)
 		{
-			if (handle == selected_entity)
-				glStencilMask(0xff);
-
 			// Draw lights first
 			Shader *shader = e.renderable[handle].shader;
 			Mesh *mesh = e.renderable[handle].mesh;
@@ -105,6 +102,9 @@ draw_entities(const Entities &e, const Camera &camera, GLContext &context, Shado
 
 			shader->set_matrix("model", e.transform[handle].mat);
 			shader->set_matrix("view", camera.view_matrix());
+
+			if (handle == selected_entity)
+				glStencilMask(0xff);
 
 			context.bind_vao(mesh->vao);
 			for (usize i = 0; i < mesh->submeshes.size(); i++)
@@ -133,9 +133,6 @@ draw_entities(const Entities &e, const Camera &camera, GLContext &context, Shado
 		{
 			using std::string;
 
-			if (handle == selected_entity)
-				glStencilMask(0xff);
-
 			Shader *shader = e.renderable[handle].shader;
 			Mesh *mesh = e.renderable[handle].mesh;
 
@@ -153,6 +150,9 @@ draw_entities(const Entities &e, const Camera &camera, GLContext &context, Shado
 				// shader->set1i("texture_shadow_map", tex_unit);
 				glBindTexture(GL_TEXTURE_2D, shadow_map.texture);
 			}
+
+			if (handle == selected_entity)
+				glStencilMask(0xff);
 
 			context.bind_vao(mesh->vao);
 			for (usize i = 0; i < mesh->submeshes.size(); i++)
@@ -177,11 +177,8 @@ draw_entities(const Entities &e, const Camera &camera, GLContext &context, Shado
 				glDrawElements(GL_TRIANGLES, sm.num_indices, GL_UNSIGNED_INT, (const void*)sm.start_index);
 			}
 			context.unbind_vao();
-
-			// always good practice to set everything back to defaults once configured.
 			glActiveTexture(GL_TEXTURE0);
 		}
-
 		glStencilMask(0x00);
 	}
 }
@@ -216,10 +213,12 @@ draw_selected_entity(const Entities &e, EntityHandle handle, Shader &selection_s
 	Mesh *mesh = e.renderable[handle].mesh;
 	Mat4f transform = e.transform[handle].mat;
 
+	Mat4f new_transform = lt::scale(transform, Vec3f(1.04f));
+
 	// Draw selection upscaled with a simple shader
 	context.use_shader(selection_shader);
 	selection_shader.set_matrix("view", view);
-	selection_shader.set_matrix("model", transform);
+	selection_shader.set_matrix("model", new_transform);
 
     context.bind_vao(mesh->vao);
 	glDrawElements(GL_TRIANGLES, mesh->number_of_indices(), GL_UNSIGNED_INT, 0);

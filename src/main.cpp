@@ -145,6 +145,7 @@ create_window_and_set_context(const char *title, i32 width, i32 height)
     glFrontFace(GL_CCW);
 
     glEnable(GL_DEPTH_TEST);
+	glEnable(GL_STENCIL_TEST);
     glViewport(0, 0, width, height);
 
     return window;
@@ -578,7 +579,7 @@ main(void)
 		{
 			// Enable stencil testing but disallow writing to it.
 			// Writing to it will be enabled inside draw_entities.
-			glEnable(GL_STENCIL_TEST);
+			glStencilMask(0xff);
 			glClear(GL_STENCIL_BUFFER_BIT);
 			glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
 			glStencilFunc(GL_ALWAYS, 1, 0xff);
@@ -591,22 +592,19 @@ main(void)
 			basic_shader.set1i("debug_gui_state.pcf_window_side", dgui::State::instance().pcf_window_side);
 
 			// glEnable(GL_CULL_FACE);
-			draw_entities(entities, camera, context, shadow_map);
+			draw_entities(entities, camera, context, shadow_map, dgui::State::instance().selected_entity_handle);
 			// gl(GL_CULL_FACE);
 
 			if (dgui::State::instance().selected_entity_handle != -1)
 			{
 				glStencilFunc(GL_NOTEQUAL, 1, 0xff);
 				glStencilMask(0x00);
-				glDisable(GL_DEPTH_TEST); // TODO: should I remove this?
 
 				draw_selected_entity(entities, dgui::State::instance().selected_entity_handle,
 									 selection_shader, camera.view_matrix(), context);
 
-				glEnable(GL_DEPTH_TEST); // TODO: should I remove this?
+				glStencilFunc(GL_ALWAYS, 1, 0xff);
 			}
-
-			glDisable(GL_STENCIL_TEST);
 
 			// Don't update the stencil buffer for the skybox
 			draw_skybox(skybox_mesh, skybox_shader, camera.view_matrix(), context);

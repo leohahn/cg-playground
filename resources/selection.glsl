@@ -16,7 +16,9 @@ uniform mat4 projection;
 void
 main()
 {
-    gl_Position = projection * view * model * vec4(att_position, 1.0f);
+	// vec3 new_pos = att_position + normalize(att_normal)*0.02;
+	vec3 new_pos = att_position;
+    gl_Position = projection * view * model * vec4(new_pos, 1.0f);
 }
 
 #endif
@@ -33,7 +35,7 @@ out vec4 frag_color;
 void
 main()
 {
-    frag_color = vec4(0.0, 1.0, 0.0, 1.0);
+    frag_color = vec4(1.0, 0.0, 0.0, 1.0);
 }
 
 #endif
