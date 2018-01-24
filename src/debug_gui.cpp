@@ -6,10 +6,13 @@
 #include <GLFW/glfw3.h>
 #include "imgui/imgui.h"
 #include "imgui_impl_glfw.hpp"
+#include "lt_utils.hpp"
 #include <stdio.h>
 
 using std::cout;
 using std::endl;
+
+lt_global_variable lt::Logger logger("debug_gui");
 
 void
 dgui::init(GLFWwindow *window)
@@ -20,7 +23,7 @@ dgui::init(GLFWwindow *window)
 }
 
 void
-dgui::draw(GLFWwindow *window)
+dgui::draw(GLFWwindow *window, Entities &entities)
 {
 	auto &state = State::instance();
 
@@ -50,19 +53,57 @@ dgui::draw(GLFWwindow *window)
 		}
 		if (ImGui::CollapsingHeader("Entities"))
 		{
+			ImGui::PushStyleVar(ImGuiStyleVar_IndentSpacing, ImGui::GetFontSize()*3);
+			EntityHandle node_clicked = -1;
 			for (const auto &it : state.entities_map)
 			{
-				if (ImGui::Selectable(it.second.c_str(), it.first == state.selected_entity_handle, 0))
+				EntityHandle curr_handle = it.first;
+
+				logger.log("Curr handle: ", curr_handle);
+				logger.log("Selected handle: ", state.selected_entity_handle);
+
+				ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow
+					| ImGuiTreeNodeFlags_OpenOnDoubleClick
+					| ((curr_handle == state.selected_entity_handle) ? ImGuiTreeNodeFlags_Selected : 0);
+
+				// ImGui::SetNextTreeNodeOpen(curr_handle == state.selected_entity_handle);
+				bool node_open = ImGui::TreeNodeEx((void*)(intptr_t)curr_handle, node_flags,
+												   "%s", it.second.c_str());
+
+				if (ImGui::IsItemClicked())
+					node_clicked = curr_handle;
+				if (node_open)
 				{
-					if (it.first == state.selected_entity_handle) state.selected_entity_handle = -1;
-					else state.selected_entity_handle = it.first; 
+					if (entities.has(curr_handle, ComponentKind_Transform))
+					{
+						// HACK: this code should be here just for testing.
+						// directly changing the transform matrix is kinda sneaky.
+						Mat4f &transform = entities.transform[curr_handle].mat;
+
+						ImGui::Text("Position:");
+						// ImGui::SameLine();
+						ImGui::PushItemWidth(65);
+						ImGui::DragFloat("x", &transform(0, 3), 0.05f, 0, 0, "%.3f");
+						ImGui::SameLine();
+						ImGui::PushItemWidth(65);
+						ImGui::DragFloat("y", &transform(1, 3), 0.05f, 0, 0, "%.3f");
+						ImGui::SameLine();
+						ImGui::PushItemWidth(65);
+						ImGui::DragFloat("z", &transform(2, 3), 0.05f, 0, 0, "%.3f");
+					}
+					ImGui::TreePop();
 				}
 			}
+			if (node_clicked != -1)
+			{
+				state.selected_entity_handle = node_clicked;
+			}
+			ImGui::PopStyleVar();
 		}
 		ImGui::End();
 	}
 
-	// ImGui::ShowDemoWindow();
+	ImGui::ShowDemoWindow();
 
 	i32 display_w, display_h;
 	glfwGetFramebufferSize(window, &display_w, &display_h);

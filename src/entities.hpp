@@ -62,6 +62,11 @@ struct Entities
 
 	EntityHandle create(u32 components_mask);
 	void         destroy(EntityHandle id);
+
+	inline bool has(EntityHandle h, ComponentKind kind) const
+	{
+		return (mask[h] & kind) != 0;
+	}
 };
 
 EntityHandle create_textured_cube(Entities &entities, Resources &resources, Shader *shader,

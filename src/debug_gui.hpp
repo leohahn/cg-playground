@@ -37,7 +37,7 @@ private:
 	State() {};
 };
 
-void draw(GLFWwindow *window);
+void draw(GLFWwindow *window, Entities &entities);
 void init(GLFWwindow *window);
 
 };

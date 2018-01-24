@@ -612,7 +612,7 @@ main(void)
 
 		if (g_display_debug_gui)
 		{
-			dgui::draw(window);
+			dgui::draw(window, entities);
 		}
 
         glfwSwapBuffers(window);
