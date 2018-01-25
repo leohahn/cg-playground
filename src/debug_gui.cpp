@@ -88,6 +88,17 @@ dgui::draw(GLFWwindow *window, Entities &entities)
 						ImGui::PushItemWidth(65);
 						ImGui::DragFloat("z", &transform(2, 3), 0.05f, 0, 0, "%.3f");
 
+						ImGui::Text("Scale:");
+						// ImGui::SameLine();
+						ImGui::PushItemWidth(65);
+						ImGui::DragFloat("x##2", &transform(0, 0), 0.05f, 0, 0, "%.3f");
+						ImGui::SameLine();
+						ImGui::PushItemWidth(65);
+						ImGui::DragFloat("y##2", &transform(1, 1), 0.05f, 0, 0, "%.3f");
+						ImGui::SameLine();
+						ImGui::PushItemWidth(65);
+						ImGui::DragFloat("z##2", &transform(2, 2), 0.05f, 0, 0, "%.3f");
+
 						if (entities.has(curr_handle, ComponentKind_LightEmmiter))
 						{
 							LightEmmiter &le = entities.light_emmiter[curr_handle];
