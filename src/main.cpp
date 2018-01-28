@@ -53,6 +53,12 @@ framebuffer_size_callback(GLFWwindow *w, i32 width, i32 height)
     glViewport(0, 0, width, height);
 }
 
+lt_internal inline f64
+get_time_milliseconds()
+{
+	return glfwGetTime() * 1000.0f;
+}
+
 lt_internal void
 update_key_state(Key &key, bool key_pressed)
 {
@@ -118,25 +124,42 @@ process_watcher_events(Shader &basic_shader, Shader &light_shader)
 }
 #endif
 
-lt_internal GLFWwindow *
-create_window_and_set_context(const char *title, i32 width, i32 height)
+struct Application
 {
+	GLFWwindow *window;
+	const char *title;
+	i32         screen_width;
+	i32         screen_height;
+	u32         hdr_fbo;
+	u32         hdr_texture;
+	u32         hdr_rbo;
+	Mesh       *render_quad;
+};
+
+lt_internal Application
+create_application_and_set_context(Resources &resources, const char *title, i32 width, i32 height)
+{
+	logger.log("Creating the application.");
+	Application app = {};
+	app.title = title;
+	app.screen_width = width;
+	app.screen_height = height;
+
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_RESIZABLE, false);
 	glfwWindowHint(GLFW_SAMPLES, 4);
 
-    GLFWwindow *window = glfwCreateWindow(width, height, title, nullptr, nullptr);
-
-    if (!window)
+    app.window = glfwCreateWindow(width, height, title, nullptr, nullptr);
+    if (!app.window)
     {
         glfwTerminate();
         LT_Fail("Failed to create glfw window.\n");
     }
 
-    glfwMakeContextCurrent(window);
-    glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+    glfwMakeContextCurrent(app.window);
+    glfwSetFramebufferSizeCallback(app.window, framebuffer_size_callback);
 
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
         LT_Fail("Failed to initialize GLAD\n");
@@ -148,37 +171,58 @@ create_window_and_set_context(const char *title, i32 width, i32 height)
 	glEnable(GL_STENCIL_TEST);
     glViewport(0, 0, width, height);
 
-    return window;
+	// Create the default HDR texture
+	glGenTextures(1, &app.hdr_texture);
+	glBindTexture(GL_TEXTURE_2D, app.hdr_texture);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, width, height, 0, GL_RGBA, GL_FLOAT, nullptr);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	// Create a depth renderbuffer for the fbo
+	glGenRenderbuffers(1, &app.hdr_rbo);
+	glBindRenderbuffer(GL_RENDERBUFFER, app.hdr_rbo);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
+	// Create the default HDR framebuffer
+	glGenFramebuffers(1, &app.hdr_fbo);
+	glBindFramebuffer(GL_FRAMEBUFFER, app.hdr_fbo);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, app.hdr_texture, 0);
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, app.hdr_rbo);
+
+	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+		logger.error("Failed to properly create the HDR framebuffer for the application.");
+
+	app.render_quad = resources.load_hdr_render_quad(app.hdr_texture);
+
+    return app;
 }
 
 void
-game_update(Key *kb, Camera& camera, f64 delta, dgui::State &state)
+game_update(Key *kb, Camera& camera, dgui::State &state)
 {
     // Move
     if (kb[GLFW_KEY_A].is_pressed)
-        camera.move(Camera::Direction::Left, delta);
+        camera.move(Camera::Direction::Left);
 
     if (kb[GLFW_KEY_D].is_pressed)
-        camera.move(Camera::Direction::Right, delta);
+        camera.move(Camera::Direction::Right);
 
     if (kb[GLFW_KEY_W].is_pressed)
-        camera.move(Camera::Direction::Forwards, delta);
+        camera.move(Camera::Direction::Forwards);
 
     if (kb[GLFW_KEY_S].is_pressed)
-        camera.move(Camera::Direction::Backwards, delta);
+        camera.move(Camera::Direction::Backwards);
 
     // Rotation
     if (kb[GLFW_KEY_RIGHT].is_pressed)
-        camera.rotate(Camera::RotationAxis::Up, -delta);
+        camera.rotate_negative(Camera::RotationAxis::Up);
 
     if (kb[GLFW_KEY_LEFT].is_pressed)
-        camera.rotate(Camera::RotationAxis::Up, delta);
+        camera.rotate_positive(Camera::RotationAxis::Up);
 
     if (kb[GLFW_KEY_UP].is_pressed)
-        camera.rotate(Camera::RotationAxis::Right, delta);
+        camera.rotate_positive(Camera::RotationAxis::Right);
 
     if (kb[GLFW_KEY_DOWN].is_pressed)
-        camera.rotate(Camera::RotationAxis::Right, -delta);
+        camera.rotate_negative(Camera::RotationAxis::Right);
 	
 	state.camera_pos = camera.frustum.position;
 	state.camera_front = camera.frustum.front.v;
@@ -292,10 +336,93 @@ struct DirectionalLight
     Vec3f specular;
 };
 
+struct Shaders
+{
+    Shader *light;
+    Shader *selection;
+    Shader *hdr_texture_to_quad;
+    Shader *basic;
+    Shader *skybox;
+    Shader *shadow_map;
+    Shader *shadow_map_render;
+};
+
+lt_internal void
+game_render(const Application &app, const Camera &camera, Entities &entities, Shaders &shaders,
+			ShadowMap &shadow_map, const Mat4f &light_view, Vec3f dir_light_pos,
+			Mesh *shadow_map_surface, Mesh *skybox_mesh, GLContext &context)
+{
+	// Render first to depth map
+	glViewport(0, 0, shadow_map.width, shadow_map.height);
+	glBindFramebuffer(GL_FRAMEBUFFER, shadow_map.fbo); // TODO: move to GLContext
+	glClear(GL_DEPTH_BUFFER_BIT);
+	glDisable(GL_CULL_FACE);
+	draw_entities_for_shadow_map(entities, light_view, dir_light_pos, shadow_map, context);
+	glEnable(GL_CULL_FACE);
+
+	// Actual rendering
+	glViewport(0, 0, app.screen_width, app.screen_height);
+	glBindFramebuffer(GL_FRAMEBUFFER, app.hdr_fbo);
+	// glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	if (dgui::State::instance().draw_shadow_map)
+	{
+		// Draws the shadowmap instead of the scene
+		draw_unit_quad(shadow_map_surface, *shaders.shadow_map_render, context);
+	}
+	else
+	{
+		// Enable stencil testing but disallow writing to it.
+		// Writing to it will be enabled inside draw_entities.
+		glStencilMask(0xff);
+		glClear(GL_STENCIL_BUFFER_BIT);
+		glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+		glStencilFunc(GL_ALWAYS, 1, 0xff);
+		glStencilMask(0x00);
+
+		context.use_shader(*shaders.basic);
+		shaders.basic->set1i("debug_gui_state.enable_normal_mapping",
+							 dgui::State::instance().enable_normal_mapping);
+		shaders.basic->set1f("debug_gui_state.pcf_texel_offset", dgui::State::instance().pcf_texel_offset);
+		shaders.basic->set1i("debug_gui_state.pcf_window_side", dgui::State::instance().pcf_window_side);
+
+		// glEnable(GL_CULL_FACE);
+		draw_entities(entities, camera, context, shadow_map, dgui::State::instance().selected_entity_handle);
+		// gl(GL_CULL_FACE);
+
+		if (dgui::State::instance().selected_entity_handle != -1)
+		{
+			glStencilFunc(GL_NOTEQUAL, 1, 0xff);
+			glStencilMask(0x00);
+
+			draw_selected_entity(entities, dgui::State::instance().selected_entity_handle,
+								 *shaders.selection, camera.view_matrix(), context);
+
+			glStencilFunc(GL_ALWAYS, 1, 0xff);
+		}
+
+		// Don't update the stencil buffer for the skybox
+		draw_skybox(skybox_mesh, *shaders.skybox, camera.view_matrix(), context);
+	}
+
+	if (g_display_debug_gui)
+	{
+		dgui::draw(app.window, entities);
+	}
+
+	// Draw HDR texture to a quad.
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	draw_unit_quad(app.render_quad, *shaders.hdr_texture_to_quad, context);
+
+	glfwSwapBuffers(app.window);
+}
+
 int
 main(void)
 {
-    /* ==================================================================================
+	/* ==================================================================================
      *     OpenGL and GLFW initialization
      * ================================================================================== */
     const i32 WINDOW_WIDTH = 1680;
@@ -305,7 +432,9 @@ main(void)
     logger.log("Initializing glfw");
     glfwInit();
 
-    GLFWwindow *window = create_window_and_set_context("CG playground", WINDOW_WIDTH, WINDOW_HEIGHT);
+	Resources resources = {};
+
+    Application app = create_application_and_set_context(resources, "CG playground", WINDOW_WIDTH, WINDOW_HEIGHT);
 
 #ifdef DEV_ENV
     pthread_t watcher_thread;
@@ -314,7 +443,6 @@ main(void)
 #endif
 
     GLContext context;
-	Resources resources = {};
 
 	//
 	// Load shaders
@@ -324,38 +452,42 @@ main(void)
 	//      recompilation for the process to work.
 	//    - Currently only the projection matrix is updated
 	//
-    Shader light_shader("light.glsl");
-    light_shader.on_recompilation([&] {
-        light_shader.setup_projection_matrix(ASPECT_RATIO, context);
+	Shaders shaders = {};
+    shaders.light = new Shader("light.glsl");
+    shaders.light->on_recompilation([&] {
+        shaders.light->setup_projection_matrix(ASPECT_RATIO, context);
     });
 
-    Shader selection_shader("selection.glsl");
-    selection_shader.on_recompilation([&] {
-        selection_shader.setup_projection_matrix(ASPECT_RATIO, context);
+    shaders.selection = new Shader("selection.glsl");
+    shaders.selection->on_recompilation([&] {
+        shaders.selection->setup_projection_matrix(ASPECT_RATIO, context);
     });
 
-    Shader basic_shader("basic.glsl");
-	basic_shader.add_texture("material.texture_diffuse1", context);
-	basic_shader.add_texture("material.texture_specular1", context);
-	basic_shader.add_texture("material.texture_normal1", context);
-	basic_shader.add_texture("texture_shadow_map", context);
-    basic_shader.on_recompilation([&] {
-        basic_shader.setup_projection_matrix(ASPECT_RATIO, context);
+    shaders.hdr_texture_to_quad = new Shader("render-hdr-texture-to-quad.glsl");
+	shaders.hdr_texture_to_quad->add_texture("texture_hdr", context);
+
+    shaders.basic = new Shader("basic.glsl");
+	shaders.basic->add_texture("material.texture_diffuse1", context);
+	shaders.basic->add_texture("material.texture_specular1", context);
+	shaders.basic->add_texture("material.texture_normal1", context);
+	shaders.basic->add_texture("texture_shadow_map", context);
+    shaders.basic->on_recompilation([&] {
+        shaders.basic->setup_projection_matrix(ASPECT_RATIO, context);
     });
 
-    Shader skybox_shader("skybox.glsl");
-	skybox_shader.add_texture("skybox", context);
-    skybox_shader.on_recompilation([&] {
-        skybox_shader.setup_projection_matrix(ASPECT_RATIO, context);
+    shaders.skybox = new Shader("skybox.glsl");
+	shaders.skybox->add_texture("skybox", context);
+    shaders.skybox->on_recompilation([&] {
+        shaders.skybox->setup_projection_matrix(ASPECT_RATIO, context);
     });
 
-    Shader shadow_map_shader("shadow_map.glsl");
+    shaders.shadow_map = new Shader("shadow_map.glsl");
 
-    Shader shadow_map_render_shader("shadow_map_render.glsl");
-	shadow_map_render_shader.add_texture("texture_shadow_map", context);
+    shaders.shadow_map_render = new Shader("shadow_map_render.glsl");
+	shaders.shadow_map_render->add_texture("texture_shadow_map", context);
 
     const f32 FIELD_OF_VIEW = 60.0f;
-    const f32 MOVE_SPEED = 0.08f;
+    const f32 MOVE_SPEED = 0.15f;
     const f32 ROTATION_SPEED = 0.02f;
 	const Vec3f CAMERA_POSITION(0, 5, 8);
 	const Vec3f CAMERA_FRONT(0, 0, -1);
@@ -386,7 +518,7 @@ main(void)
 											TextureFormat_RGB, PixelFormat_RGB);
 
 	const i32 shadow_map_width = 1024, shadow_map_height = 1024;
-	ShadowMap shadow_map = create_shadow_map(shadow_map_width, shadow_map_height, shadow_map_shader);
+	ShadowMap shadow_map = create_shadow_map(shadow_map_width, shadow_map_height, *shaders.shadow_map);
 	Mesh *shadow_map_surface = resources.load_shadow_map_render_surface(shadow_map.texture);
 
     const u32 pallet_texture_diffuse = load_texture("pallet/diffus.tga", TextureFormat_SRGB, PixelFormat_RGB);
@@ -402,7 +534,7 @@ main(void)
 	Mat4f pallet_transform;
 	pallet_transform = lt::translation(pallet_transform, Vec3f(10, 1, 0));
 	pallet_transform = lt::scale(pallet_transform, Vec3f(0.02));
-	create_entity_from_model(entities, resources, "pallet/pallet.obj", &basic_shader,
+	create_entity_from_model(entities, resources, "pallet/pallet.obj", shaders.basic,
 							 pallet_transform, 32.0f, pallet_texture_diffuse,
 							 pallet_texture_specular, pallet_texture_normal);
 	
@@ -426,91 +558,123 @@ main(void)
 		Mat4f transform;
 		transform = lt::translation(transform, positions[i]);
 		transform = lt::scale(transform, scales[i]);
-		create_textured_cube(entities, resources, &basic_shader, transform, 128,
+		create_textured_cube(entities, resources, shaders.basic, transform, 128,
 							 box_texture_diffuse, box_texture_diffuse, box_texture_normal);
 	}
 	//
 	// Light
 	//
 	DirectionalLight dir_light;
-	dir_light.direction = Vec3f(0.4f, -0.57f, 0.72f);
+	dir_light.direction = Vec3f(0.51f, -0.44f, 0.74f);
 	dir_light.ambient = Vec3f(.2f);
 	dir_light.diffuse = Vec3f(1);
 	dir_light.specular = Vec3f(1);
-	const Vec3f dir_light_pos(-15.47f, 24.12f, -28.7f);
+	const Vec3f dir_light_pos(-55.01f, 57.25f, -101.6f);
 
 	const Mat4f light_view = lt::look_at(dir_light_pos, dir_light_pos+dir_light.direction, Vec3f(0, 1, 0));
 
-	context.use_shader(basic_shader);
-	basic_shader.set3f("dir_light.direction", dir_light.direction);
-	basic_shader.set3f("dir_light.ambient", dir_light.ambient);
-	basic_shader.set3f("dir_light.diffuse", dir_light.diffuse);
-	basic_shader.set3f("dir_light.specular", dir_light.specular);
+	context.use_shader(*shaders.basic);
+	shaders.basic->set3f("dir_light.direction", dir_light.direction);
+	shaders.basic->set3f("dir_light.ambient", dir_light.ambient);
+	shaders.basic->set3f("dir_light.diffuse", dir_light.diffuse);
+	shaders.basic->set3f("dir_light.specular", dir_light.specular);
 
 	{
 		// Set the static light space uniform for the shadow map shader
-		const Mat4f light_projection = lt::orthographic(-30, 30, -30, 30, 1, 100);
+		const Mat4f light_projection = lt::orthographic(-50, 50, -50, 50, 1, 1000);
 		const Mat4f light_space = light_projection * light_view;
-		context.use_shader(shadow_map_shader);
-		shadow_map_shader.set_matrix("light_space", light_space);
-		context.use_shader(basic_shader);
-		basic_shader.set_matrix("light_space", light_space);
+		context.use_shader(*shaders.shadow_map);
+		shaders.shadow_map->set_matrix("light_space", light_space);
+		context.use_shader(*shaders.basic);
+		shaders.basic->set_matrix("light_space", light_space);
 	}
 	{
 		LightEmmiter le = {};
 		le.position = Vec3f(3.0f, 5.0f, 0.0f);
-		le.ambient = Vec3f(0.1f);
-		le.diffuse = Vec3f(0.7f);
+		le.ambient = Vec3f(0.01f);
+		le.diffuse = Vec3f(0.5f);
 		le.specular = Vec3f(1.0f);
 		le.constant = 1.0f;
 		le.linear = 0.35;
 		le.quadratic = 0.44f;
-		le.shader = &basic_shader;
+		le.shader = shaders.basic;
 
 		Mat4f transform;
 		transform = lt::translation(transform, Vec3f(3, 5, 0));
 		transform = lt::scale(transform, Vec3f(0.1f));
 
-		create_point_light(entities, resources, &light_shader, transform, le, 0, 0);
+		create_point_light(entities, resources, shaders.light, transform, le, 0, 0);
 	}
-	// WALL
+	// Wall on left
 	{
 		Mat4f transform(1);
-		transform = lt::translation(transform, Vec3f(-10, 0, 0));
-		transform = lt::rotation_y(transform, 90.0f);
-		transform = lt::scale(transform, Vec3f(8.0f));
-		create_plane(entities, resources, &basic_shader, transform, 32, 5.0f,
-					 wall_texture_diffuse, wall_texture_diffuse, wall_texture_normal);
+		transform = lt::translation(transform, Vec3f(-18, 18, 0));
+		transform = lt::scale(transform, Vec3f(.5f, 18, 28));
+		create_textured_cube(entities, resources, shaders.basic, transform, 128,
+							 wall_texture_diffuse, wall_texture_diffuse, wall_texture_normal);
+	}
+	// Wall on right
+	{
+		Mat4f transform(1);
+		transform = lt::translation(transform, Vec3f(37, 18, 0));
+		transform = lt::scale(transform, Vec3f(.5f, 18, 28));
+		create_textured_cube(entities, resources, shaders.basic, transform, 128,
+							 wall_texture_diffuse, wall_texture_diffuse, wall_texture_normal);
+	}
+	// Wall on top
+	{
+		Mat4f transform(1);
+		transform = lt::translation(transform, Vec3f(9.5f, 36.5f, 0));
+		transform = lt::scale(transform, Vec3f(28, .5f, 28));
+		create_textured_cube(entities, resources, shaders.basic, transform, 128,
+							 wall_texture_diffuse, wall_texture_diffuse, wall_texture_normal);
+	}
+	// Wall on the back
+	{
+		Mat4f transform(1);
+		transform = lt::translation(transform, Vec3f(9.7f, 18, 27.5f));
+		transform = lt::scale(transform, Vec3f(27, 18, .5f));
+		create_textured_cube(entities, resources, shaders.basic, transform, 128,
+							 wall_texture_diffuse, wall_texture_diffuse, wall_texture_normal);
+	}
+	// Wall on the front
+	{
+		Mat4f transform(1);
+		transform = lt::translation(transform, Vec3f(30.0f, 18, -28.5f));
+		transform = lt::scale(transform, Vec3f(27, 18, .5f));
+		create_textured_cube(entities, resources, shaders.basic, transform, 128,
+							 wall_texture_diffuse, wall_texture_diffuse, wall_texture_normal);
 	}
 	// FLOOR
 	{
 		Mat4f transform(1);
+		transform = lt::translation(transform, Vec3f(9.5f, 0, 0));
 		transform = lt::rotation_x(transform, -90);
-		transform = lt::scale(transform, Vec3f(20.0f));
+		transform = lt::scale(transform, Vec3f(28, 28, 1));
 
-		create_plane(entities, resources, &basic_shader, transform, 32, 10.0f,
+		create_plane(entities, resources, shaders.basic, transform, 32, 10.0f,
 					 floor_texture_diffuse, floor_texture_diffuse, floor_texture_normal);
 	}
 	// Skybox
-	const Mesh *skybox_mesh = resources.load_cubemap(skybox);
+	Mesh *skybox_mesh = resources.load_cubemap(skybox);
 
 	// Set projection matrices.
-    light_shader.setup_projection_matrix(ASPECT_RATIO, context);
-    basic_shader.setup_projection_matrix(ASPECT_RATIO, context);
-    skybox_shader.setup_projection_matrix(ASPECT_RATIO, context);
-    selection_shader.setup_projection_matrix(ASPECT_RATIO, context);
+    shaders.light->setup_projection_matrix(ASPECT_RATIO, context);
+    shaders.basic->setup_projection_matrix(ASPECT_RATIO, context);
+    shaders.skybox->setup_projection_matrix(ASPECT_RATIO, context);
+    shaders.selection->setup_projection_matrix(ASPECT_RATIO, context);
 
 	// Initialize the DEBUG GUI
-	dgui::init(window);
+	dgui::init(app.window);
 
     // Define variables to control time
-    const f64 DESIRED_FPS = 60.0;
-    const f64 DESIRED_FRAMETIME = 1.0 / DESIRED_FPS;
-    const i32 MAX_STEPS = 6;
-    const f64 MAX_DELTA_TIME = 1.0;
+    const f64 DESIRED_FPS = 30.0;
+    const f64 MS_PER_UPDATE = (1.0 / DESIRED_FPS) * 1000;
 
-    f64 new_time, total_delta, delta;
-    f64 previous_time = glfwGetTime();
+	logger.log("MS_PER_UPDATE: ", MS_PER_UPDATE);
+
+    f64 previous_time = get_time_milliseconds();
+	f64 lag = 0.0;
 
 	// Fixed clear color
 	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
@@ -519,19 +683,23 @@ main(void)
     while (running)
     {
         // Update frame information.
-        new_time = glfwGetTime();
-		dgui::State::instance().frame_time = new_time - previous_time;
-        previous_time = new_time;
-		dgui::State::instance().fps = 1 / dgui::State::instance().frame_time;
+        f64 current_time = get_time_milliseconds();
+		const f64 elapsed_time = current_time - previous_time;
+        previous_time = current_time;
+		lag += elapsed_time;
+
+		// Update debug gui
+		dgui::State::instance().frame_time = elapsed_time;
+		dgui::State::instance().fps = 1000.0 / dgui::State::instance().frame_time;
 
         // Process input and watcher events.
-        process_input(window, g_keyboard);
+        process_input(app.window, g_keyboard);
 #ifdef DEV_ENV
-        process_watcher_events(basic_shader, light_shader);
+        process_watcher_events(*shaders.basic, *shaders.light);
 #endif
 
         // Check if the window should close.
-        if (glfwWindowShouldClose(window))
+        if (glfwWindowShouldClose(app.window))
         {
             running = false;
 #ifdef DEV_ENV
@@ -545,83 +713,21 @@ main(void)
 		else
 			context.disable_multisampling();
 
-        total_delta = dgui::State::instance().frame_time / DESIRED_FRAMETIME;
-        i32 loops = 0;
-        while (total_delta > 0.0 && loops < MAX_STEPS)
+        while (lag >= MS_PER_UPDATE)
         {
-            delta = std::min(total_delta, MAX_DELTA_TIME);
-
-            game_update(g_keyboard, camera, delta, dgui::State::instance());
-
-            total_delta -= delta;
-            loops++;
+            game_update(g_keyboard, camera, dgui::State::instance());
+            lag -= MS_PER_UPDATE;
 		}
 
-		// Render first to depth map
-		glViewport(0, 0, shadow_map_width, shadow_map_height);
-		glBindFramebuffer(GL_FRAMEBUFFER, shadow_map.fbo); // TODO: move to GLContext
-		glClear(GL_DEPTH_BUFFER_BIT);
-		glDisable(GL_CULL_FACE);
-		draw_entities_for_shadow_map(entities, light_view, dir_light_pos, shadow_map, context);
-		glEnable(GL_CULL_FACE);
+		game_render(app, camera, entities, shaders, shadow_map, light_view, dir_light_pos,
+					shadow_map_surface, skybox_mesh, context);
 
-		// Actual rendering
-		glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-		if (dgui::State::instance().draw_shadow_map)
-		{
-			// Draws the shadowmap instead of the scene
-			draw_shadow_map(shadow_map_surface, shadow_map_render_shader, context);
-		}
-		else
-		{
-			// Enable stencil testing but disallow writing to it.
-			// Writing to it will be enabled inside draw_entities.
-			glStencilMask(0xff);
-			glClear(GL_STENCIL_BUFFER_BIT);
-			glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
-			glStencilFunc(GL_ALWAYS, 1, 0xff);
-			glStencilMask(0x00);
-
-			context.use_shader(basic_shader);
-			basic_shader.set1i("debug_gui_state.enable_normal_mapping",
-							   dgui::State::instance().enable_normal_mapping);
-			basic_shader.set1f("debug_gui_state.pcf_texel_offset", dgui::State::instance().pcf_texel_offset);
-			basic_shader.set1i("debug_gui_state.pcf_window_side", dgui::State::instance().pcf_window_side);
-
-			// glEnable(GL_CULL_FACE);
-			draw_entities(entities, camera, context, shadow_map, dgui::State::instance().selected_entity_handle);
-			// gl(GL_CULL_FACE);
-
-			if (dgui::State::instance().selected_entity_handle != -1)
-			{
-				glStencilFunc(GL_NOTEQUAL, 1, 0xff);
-				glStencilMask(0x00);
-
-				draw_selected_entity(entities, dgui::State::instance().selected_entity_handle,
-									 selection_shader, camera.view_matrix(), context);
-
-				glStencilFunc(GL_ALWAYS, 1, 0xff);
-			}
-
-			// Don't update the stencil buffer for the skybox
-			draw_skybox(skybox_mesh, skybox_shader, camera.view_matrix(), context);
-		}
-
-		if (g_display_debug_gui)
-		{
-			dgui::draw(window, entities);
-		}
-
-        glfwSwapBuffers(window);
         glfwPollEvents();
     }
 
 #ifdef DEV_ENV
     pthread_join(watcher_thread, nullptr);
 #endif
-    glfwDestroyWindow(window);
+    glfwDestroyWindow(app.window);
     glfwTerminate();
 }

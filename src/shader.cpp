@@ -8,6 +8,7 @@
 #include "lt_fs.hpp"
 #include "lt_utils.hpp"
 #include "gl_context.hpp"
+#include "camera.hpp"
 
 lt_internal lt::Logger logger("shader");
 
@@ -178,7 +179,7 @@ Shader::texture_unit(const std::string &name) const
 void
 Shader::setup_projection_matrix(f32 aspect_ratio, GLContext &context)
 {
-    const Mat4f projection = lt::perspective(60.0f, aspect_ratio, 0.1f, 100.0f);
+    const Mat4f projection = lt::perspective(60.0f, aspect_ratio, Camera::ZNEAR, Camera::ZFAR);
     context.use_shader(*this);
     glUniformMatrix4fv(get_location("projection"), 1, GL_FALSE, projection.data());
 }

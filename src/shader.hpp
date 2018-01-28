@@ -15,6 +15,10 @@ struct Shader
     u32 program;
 
     explicit Shader(const char *name);
+    Shader()
+		: name(nullptr)
+		, program(-1)
+	{}
     ~Shader();
 
     void recompile();

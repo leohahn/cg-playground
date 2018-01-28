@@ -292,6 +292,48 @@ Resources::load_shadow_map_render_surface(u32 shadow_map_texture)
     return mesh;
 }
 
+// EFFICIENCY: Reuse the meshes that are exactly the same and are not going
+// to change (e.g. shadow map surface and this quad).
+Mesh *
+Resources::load_hdr_render_quad(u32 hdr_texture)
+{
+	const i64 this_mesh_id = get_new_id();
+	const isize NUM_VERTICES = LT_Count(UNIT_PLANE_VERTICES);
+	const isize NUM_INDICES = LT_Count(UNIT_PLANE_INDICES);
+
+	Mesh *mesh = &meshes[this_mesh_id];
+	mesh->id = this_mesh_id;
+	mesh->vertices = std::vector<Vec3f>(NUM_VERTICES);
+	mesh->tex_coords = std::vector<Vec2f>(NUM_VERTICES);
+
+	// Add all only the positions
+	for (usize i = 0; i < NUM_VERTICES; i++)
+	{
+		mesh->vertices[i] = UNIT_PLANE_VERTICES[i];
+		mesh->tex_coords[i] = UNIT_PLANE_TEX_COORDS[i];
+	}
+
+	for (usize i = 0; i < NUM_INDICES; i+=3)
+	{
+		Face face = {};
+		face.val[0] = UNIT_PLANE_INDICES[i];
+		face.val[1] = UNIT_PLANE_INDICES[i+1];
+		face.val[2] = UNIT_PLANE_INDICES[i+2];
+
+		mesh->faces.push_back(face);
+		mesh->faces_textures.push_back(std::vector<isize>{0, 1, 2});
+	}
+
+	Submesh sm = {};
+	sm.start_index = 0;
+	sm.num_indices = mesh->number_of_indices();
+	sm.textures.push_back(Texture(hdr_texture, "texture_hdr"));
+	mesh->submeshes.push_back(sm);
+
+	setup_mesh_buffers_pu(*mesh);
+    return mesh;
+}
+
 Mesh *
 Resources::load_unit_cube(u32 diffuse_texture, u32 specular_texture, u32 normal_texture)
 {

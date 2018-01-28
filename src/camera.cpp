@@ -32,9 +32,9 @@ Camera::Camera(Vec3f position, Vec3f front_vec, Vec3f up_world,
 }
 
 void
-Camera::move(Direction dir, f64 delta)
+Camera::move(Direction dir)
 {
-    f32 offset = move_speed * delta;
+    f32 offset = move_speed;
     switch (dir)
     {
     case Direction::Left: {
@@ -58,26 +58,38 @@ Camera::move(Direction dir, f64 delta)
     }
 }
 
-void
-Camera::rotate(RotationAxis axis, f64 delta)
+lt_internal void
+do_rotation(Camera *camera, Camera::RotationAxis axis, f32 angle)
 {
     switch (axis)
     {
-    case RotationAxis::Up: {
-        Quatf rotated_front = lt::rotate(frustum.front, (f32)delta*rotation_speed, frustum.up);
-        frustum.front = rotated_front;
+    case Camera::RotationAxis::Up: {
+        Quatf rotated_front = lt::rotate(camera->frustum.front, angle, camera->frustum.up);
+        camera->frustum.front = rotated_front;
     } break;
 
-    case RotationAxis::Right: {
-        Quatf rotated_front = lt::rotate(frustum.front, (f32)delta*rotation_speed, frustum.right);
-        frustum.front = rotated_front;
+    case Camera::RotationAxis::Right: {
+        Quatf rotated_front = lt::rotate(camera->frustum.front, angle, camera->frustum.right);
+        camera->frustum.front = rotated_front;
     } break;
 
     default:
         LT_Assert(false);
     }
 
-    update_frustum_right_and_up(frustum, up_world);
+    update_frustum_right_and_up(camera->frustum, camera->up_world);
+}
+
+void
+Camera::rotate_positive(RotationAxis axis)
+{
+	do_rotation(this, axis, rotation_speed);
+}
+
+void
+Camera::rotate_negative(RotationAxis axis)
+{
+	do_rotation(this, axis, -rotation_speed);
 }
 
 Mat4f

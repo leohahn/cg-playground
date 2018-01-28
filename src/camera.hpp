@@ -21,7 +21,7 @@ struct Frustum
 struct Camera
 {
     static constexpr f32 ZNEAR = 0.1f;
-    static constexpr f32 ZFAR = 600.0f;
+    static constexpr f32 ZFAR = 1000.0f;
 
     enum class Direction { Left, Right, Forwards, Backwards };
     enum class RotationAxis { Up, Right };
@@ -36,8 +36,9 @@ struct Camera
     Camera(Vec3f position, Vec3f front_vec, Vec3f up_world,
            f32 fovy, f32 ratio, f32 move_speed, f32 rotation_speed);
 
-    void move(Direction dir, f64 delta);
-    void rotate(RotationAxis axis, f64 delta);
+    void move(Direction dir);
+    void rotate_positive(RotationAxis axis);
+    void rotate_negative(RotationAxis axis);
     Mat4f view_matrix() const;
 };
 

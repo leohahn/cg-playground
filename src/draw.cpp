@@ -46,10 +46,10 @@ create_shadow_map(i32 width, i32 height, Shader &shader)
 }
 
 void
-draw_shadow_map(Mesh *mesh, Shader &shadow_map_render_shader, GLContext &context)
+draw_unit_quad(Mesh *mesh, Shader &shader, GLContext &context)
 {
 	using std::string;
-	context.use_shader(shadow_map_render_shader);
+	context.use_shader(shader);
 
 	glActiveTexture(GL_TEXTURE0); // activate proper texture unit before binding
 	context.bind_vao(mesh->vao);
@@ -57,7 +57,6 @@ draw_shadow_map(Mesh *mesh, Shader &shadow_map_render_shader, GLContext &context
 	{
 		Submesh sm = mesh->submeshes[i];
 		LT_Assert(sm.textures.size() == 1);
-		LT_Assert(sm.textures[0].type == "texture_shadow_map");
 
 		glBindTexture(GL_TEXTURE_2D, sm.textures[0].id);
 		glDrawElements(GL_TRIANGLES, sm.num_indices, GL_UNSIGNED_INT, (const void*)sm.start_index);
