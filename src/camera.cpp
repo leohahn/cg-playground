@@ -115,31 +115,28 @@ Camera::rotate()
 	update_frustum_right_and_up(frustum, up_world);
 }
 
-Mat4f
-Camera::view_matrix(f64 lag_offset) const
+void
+Camera::interpolate_frustum(f64 lag_offset)
 {
-	Vec3f position;
-	Quatf front;
-    Vec3f up_vec;
+	interpolated_frustum = previous_frustum;
 
 	if (dgui::State::instance().enable_interpolation)
 	{
-		position = previous_frustum.position*(1.0-lag_offset) + frustum.position*lag_offset;
+		interpolated_frustum.position = previous_frustum.position*(1.0-lag_offset) + frustum.position*lag_offset;
 
 		if (previous_frustum.front == frustum.front)
-			front = previous_frustum.front;
+			interpolated_frustum.front = previous_frustum.front;
 		else
-			front = lt::slerp(previous_frustum.front, frustum.front, (f32)lag_offset);
+			interpolated_frustum.front = lt::slerp(previous_frustum.front, frustum.front, (f32)lag_offset);
 
-		Vec3f right_vec = lt::normalize(lt::cross(front.v, up_world));
-		up_vec = lt::normalize(lt::cross(right_vec, front.v));
+		update_frustum_right_and_up(interpolated_frustum, up_world);
 	}
-	else
-	{
-		position = previous_frustum.position;
-		front = previous_frustum.front;
-		up_vec = previous_frustum.up.v;
-	}
+}
 
-    return lt::look_at(position, position + front.v, up_vec);
+Mat4f
+Camera::view_matrix() const
+{
+    return lt::look_at(interpolated_frustum.position,
+					   interpolated_frustum.position + interpolated_frustum.front.v,
+					   interpolated_frustum.up.v);
 }

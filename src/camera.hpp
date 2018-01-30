@@ -34,6 +34,7 @@ struct Camera
     f32     rotation_speed;
 
 	Frustum previous_frustum;
+	Frustum interpolated_frustum;
 
 	Vec3f curr_direction;     
 	Vec3f curr_rotation_axis;     
@@ -43,8 +44,9 @@ struct Camera
 
 	// void add_frame_rotation(RotationAxis axis);
 	void update(Key *kb);
+	void interpolate_frustum(f64 lag_offset);
 
-    Mat4f view_matrix(f64 lag_offset) const;
+    Mat4f view_matrix() const;
 
 private:
 	void add_frame_movement(Direction dir);
@@ -57,8 +59,6 @@ private:
 	}
 	inline void move() { frustum.position += (curr_direction * move_speed); }
     void rotate();
-	// void calculate_render_frustum(f64 frame_position);
-	
 };
 
 #endif // CAMERA_HPP

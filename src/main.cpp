@@ -264,7 +264,6 @@ load_texture(const char *path, TextureFormat texture_format, PixelFormat pixel_f
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     i32 width, height, num_channels;
-	// logger.log("Trying to load ", fullpath);
     uchar *image_data = stbi_load(fullpath.c_str(), &width, &height, &num_channels, 0);
     if (image_data)
     {
@@ -300,7 +299,6 @@ void
 game_update(Key *kb, Camera& camera, dgui::State &state)
 {
 	camera.update(kb);
-
 	// Update debug gui state variables.
 	state.camera_pos = camera.frustum.position;
 	state.camera_front = camera.frustum.front.v;
@@ -325,10 +323,9 @@ game_render(f64 lag_offset, const Application &app, Camera &camera, Entities &en
 	LT_Assert(lag_offset < 1);
 	LT_Assert(lag_offset >= 0);
 
-	// The frustum used for rendering is different than the one used for updating the game.
-	// camera.calculate_render_frustum(lag_offset);
+	camera.interpolate_frustum(lag_offset);
 
-	const Mat4f view_matrix = camera.view_matrix(lag_offset);
+	const Mat4f view_matrix = camera.view_matrix();
 
 	// Render first to depth map
 	glViewport(0, 0, shadow_map.width, shadow_map.height);
@@ -644,10 +641,6 @@ main(void)
 	dgui::init(app.window);
 
     // Define variables to control time
-    // constexpr f64 DESIRED_FPS = 60.0;
-    // constexpr f64 MS_PER_UPDATE = 1000.0 / DESIRED_FPS;
-
-	// const i32 MAX_FRAMESKIP = 5;
     f64 current_time = get_time_milliseconds();
 	f64 accumulator = 0;
 	f64 second_counter = get_time_milliseconds();
@@ -665,8 +658,8 @@ main(void)
         // Update frame information.
         f64 new_time = get_time_milliseconds();
 		f64 frame_time = new_time - current_time;
-		// if (frame_time > 250)
-			// frame_time = 250;
+		if (frame_time > 80)
+			logger.log("Frame time took too long: ", frame_time, "ms");
         current_time = new_time;
 
 		accumulator += frame_time;

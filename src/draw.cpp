@@ -89,6 +89,8 @@ void
 draw_entities(f64 lag_offset, const Entities &e, const Camera &camera, GLContext &context,
 			  ShadowMap &shadow_map, EntityHandle selected_entity)
 {
+	const Mat4f view_matrix = camera.view_matrix();
+
 	for (EntityHandle handle = 0; handle < MAX_ENTITIES; handle++)
 	{
 		if ((e.mask[handle] & LIGHT_MASK) == LIGHT_MASK)
@@ -100,7 +102,7 @@ draw_entities(f64 lag_offset, const Entities &e, const Camera &camera, GLContext
 			context.use_shader(*shader);
 
 			shader->set_matrix("model", e.transform[handle].mat);
-			shader->set_matrix("view", camera.view_matrix(lag_offset));
+			shader->set_matrix("view", view_matrix);
 
 			if (handle == selected_entity)
 				glStencilMask(0xff);
@@ -138,7 +140,7 @@ draw_entities(f64 lag_offset, const Entities &e, const Camera &camera, GLContext
 			context.use_shader(*shader);
 
 			shader->set_matrix("model", e.transform[handle].mat);
-			shader->set_matrix("view", camera.view_matrix(lag_offset));
+			shader->set_matrix("view", view_matrix);
             shader->set3f("view_position", camera.frustum.position);
             shader->set1f("material.shininess", e.renderable[handle].shininess);
 
