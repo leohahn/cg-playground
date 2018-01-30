@@ -24,26 +24,19 @@
 #include "debug_gui.hpp"
 #include "resources.hpp"
 #include "stb_image.h"
+#include "input.hpp"
 #include "entities.hpp"
+
+//
+// TODOs
+//
+// - Add quaterion interpolation for better rotations. (SLERP)
+//   - Hopefully then fix the game loop 
+// - Add antialiasing to the offscreen HDR buffer.
+//
 
 lt_global_variable lt::Logger logger("main");
 lt_global_variable bool g_display_debug_gui = true;
-
-struct Key
-{
-	enum Transition
-	{
-		Transition_None = 0,
-		Transition_Up = 1,
-		Transition_Down = 2,
-	};
-
-	bool is_pressed;
-	Transition last_transition;
-};
-
-const i32 NUM_KEYBOARD_KEYS = 1024;
-
 lt_global_variable Key g_keyboard[NUM_KEYBOARD_KEYS] = {};
 
 lt_internal void
@@ -195,39 +188,6 @@ create_application_and_set_context(Resources &resources, const char *title, i32 
     return app;
 }
 
-void
-game_update(Key *kb, Camera& camera, dgui::State &state)
-{
-    // Move
-    if (kb[GLFW_KEY_A].is_pressed)
-        camera.move(Camera::Direction::Left);
-
-    if (kb[GLFW_KEY_D].is_pressed)
-        camera.move(Camera::Direction::Right);
-
-    if (kb[GLFW_KEY_W].is_pressed)
-        camera.move(Camera::Direction::Forwards);
-
-    if (kb[GLFW_KEY_S].is_pressed)
-        camera.move(Camera::Direction::Backwards);
-
-    // Rotation
-    if (kb[GLFW_KEY_RIGHT].is_pressed)
-        camera.rotate_negative(Camera::RotationAxis::Up);
-
-    if (kb[GLFW_KEY_LEFT].is_pressed)
-        camera.rotate_positive(Camera::RotationAxis::Up);
-
-    if (kb[GLFW_KEY_UP].is_pressed)
-        camera.rotate_positive(Camera::RotationAxis::Right);
-
-    if (kb[GLFW_KEY_DOWN].is_pressed)
-        camera.rotate_negative(Camera::RotationAxis::Right);
-	
-	state.camera_pos = camera.frustum.position;
-	state.camera_front = camera.frustum.front.v;
-}
-
 enum TextureFormat
 {
 	TextureFormat_RGB = GL_RGB8,
@@ -336,6 +296,16 @@ struct DirectionalLight
     Vec3f specular;
 };
 
+void
+game_update(Key *kb, Camera& camera, dgui::State &state)
+{
+	camera.update(kb);
+
+	// Update debug gui state variables.
+	state.camera_pos = camera.frustum.position;
+	state.camera_front = camera.frustum.front.v;
+}
+
 struct Shaders
 {
     Shader *light;
@@ -348,10 +318,18 @@ struct Shaders
 };
 
 lt_internal void
-game_render(const Application &app, const Camera &camera, Entities &entities, Shaders &shaders,
-			ShadowMap &shadow_map, const Mat4f &light_view, Vec3f dir_light_pos,
+game_render(f64 lag_offset, const Application &app, Camera &camera, Entities &entities,
+			Shaders &shaders, ShadowMap &shadow_map, const Mat4f &light_view, Vec3f dir_light_pos,
 			Mesh *shadow_map_surface, Mesh *skybox_mesh, GLContext &context)
 {
+	LT_Assert(lag_offset < 1);
+	LT_Assert(lag_offset >= 0);
+
+	// The frustum used for rendering is different than the one used for updating the game.
+	// camera.calculate_render_frustum(lag_offset);
+
+	const Mat4f view_matrix = camera.view_matrix(lag_offset);
+
 	// Render first to depth map
 	glViewport(0, 0, shadow_map.width, shadow_map.height);
 	glBindFramebuffer(GL_FRAMEBUFFER, shadow_map.fbo); // TODO: move to GLContext
@@ -363,7 +341,6 @@ game_render(const Application &app, const Camera &camera, Entities &entities, Sh
 	// Actual rendering
 	glViewport(0, 0, app.screen_width, app.screen_height);
 	glBindFramebuffer(GL_FRAMEBUFFER, app.hdr_fbo);
-	// glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	if (dgui::State::instance().draw_shadow_map)
@@ -387,9 +364,7 @@ game_render(const Application &app, const Camera &camera, Entities &entities, Sh
 		shaders.basic->set1f("debug_gui_state.pcf_texel_offset", dgui::State::instance().pcf_texel_offset);
 		shaders.basic->set1i("debug_gui_state.pcf_window_side", dgui::State::instance().pcf_window_side);
 
-		// glEnable(GL_CULL_FACE);
-		draw_entities(entities, camera, context, shadow_map, dgui::State::instance().selected_entity_handle);
-		// gl(GL_CULL_FACE);
+		draw_entities(lag_offset, entities, camera, context, shadow_map, dgui::State::instance().selected_entity_handle);
 
 		if (dgui::State::instance().selected_entity_handle != -1)
 		{
@@ -397,13 +372,13 @@ game_render(const Application &app, const Camera &camera, Entities &entities, Sh
 			glStencilMask(0x00);
 
 			draw_selected_entity(entities, dgui::State::instance().selected_entity_handle,
-								 *shaders.selection, camera.view_matrix(), context);
+								 *shaders.selection, view_matrix, context);
 
 			glStencilFunc(GL_ALWAYS, 1, 0xff);
 		}
 
 		// Don't update the stencil buffer for the skybox
-		draw_skybox(skybox_mesh, *shaders.skybox, camera.view_matrix(), context);
+		draw_skybox(skybox_mesh, *shaders.skybox, view_matrix, context);
 	}
 
 	if (g_display_debug_gui)
@@ -487,8 +462,8 @@ main(void)
 	shaders.shadow_map_render->add_texture("texture_shadow_map", context);
 
     const f32 FIELD_OF_VIEW = 60.0f;
-    const f32 MOVE_SPEED = 0.15f;
-    const f32 ROTATION_SPEED = 0.02f;
+    const f32 MOVE_SPEED = 0.33f;
+    const f32 ROTATION_SPEED = 0.050f;
 	const Vec3f CAMERA_POSITION(0, 5, 8);
 	const Vec3f CAMERA_FRONT(0, 0, -1);
 	const Vec3f UP_WORLD(0.0f, 1.0f, 0.0f);
@@ -555,6 +530,7 @@ main(void)
 	};
 	for (usize i = 0; i < LT_Count(positions); i++)
 	{
+		if (i == 2) break;
 		Mat4f transform;
 		transform = lt::translation(transform, positions[i]);
 		transform = lt::scale(transform, scales[i]);
@@ -632,7 +608,7 @@ main(void)
 	// Wall on the back
 	{
 		Mat4f transform(1);
-		transform = lt::translation(transform, Vec3f(9.7f, 18, 27.5f));
+		transform = lt::translation(transform, Vec3f(9.5f, 18, 27.5f));
 		transform = lt::scale(transform, Vec3f(27, 18, .5f));
 		create_textured_cube(entities, resources, shaders.basic, transform, 128,
 							 wall_texture_diffuse, wall_texture_diffuse, wall_texture_normal);
@@ -668,13 +644,17 @@ main(void)
 	dgui::init(app.window);
 
     // Define variables to control time
-    const f64 DESIRED_FPS = 30.0;
-    const f64 MS_PER_UPDATE = (1.0 / DESIRED_FPS) * 1000;
+    // constexpr f64 DESIRED_FPS = 60.0;
+    // constexpr f64 MS_PER_UPDATE = 1000.0 / DESIRED_FPS;
 
-	logger.log("MS_PER_UPDATE: ", MS_PER_UPDATE);
+	// const i32 MAX_FRAMESKIP = 5;
+    f64 current_time = get_time_milliseconds();
+	f64 accumulator = 0;
+	f64 second_counter = get_time_milliseconds();
 
-    f64 previous_time = get_time_milliseconds();
-	f64 lag = 0.0;
+	u32 frame_count = 0;
+	u32 update_count = 0;
+	f64 avg_frame_time = 0;
 
 	// Fixed clear color
 	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
@@ -683,14 +663,13 @@ main(void)
     while (running)
     {
         // Update frame information.
-        f64 current_time = get_time_milliseconds();
-		const f64 elapsed_time = current_time - previous_time;
-        previous_time = current_time;
-		lag += elapsed_time;
+        f64 new_time = get_time_milliseconds();
+		f64 frame_time = new_time - current_time;
+		// if (frame_time > 250)
+			// frame_time = 250;
+        current_time = new_time;
 
-		// Update debug gui
-		dgui::State::instance().frame_time = elapsed_time;
-		dgui::State::instance().fps = 1000.0 / dgui::State::instance().frame_time;
+		accumulator += frame_time;
 
         // Process input and watcher events.
         process_input(app.window, g_keyboard);
@@ -713,16 +692,34 @@ main(void)
 		else
 			context.disable_multisampling();
 
-        while (lag >= MS_PER_UPDATE)
+		const f64 dt = 1000 / 30.0f;
+        while (accumulator >= dt)
         {
             game_update(g_keyboard, camera, dgui::State::instance());
-            lag -= MS_PER_UPDATE;
+			update_count++;
+            accumulator -= dt;
 		}
 
-		game_render(app, camera, entities, shaders, shadow_map, light_view, dir_light_pos,
+		const f64 lag_offset = accumulator / dt;
+
+		game_render(lag_offset, app, camera, entities, shaders, shadow_map, light_view, dir_light_pos,
 					shadow_map_surface, skybox_mesh, context);
 
         glfwPollEvents();
+
+		frame_count++;
+		avg_frame_time += frame_time;
+		if (get_time_milliseconds() - second_counter >= 1000)
+		{
+			avg_frame_time /= frame_count;
+			dgui::State::instance().frame_time = avg_frame_time;
+			dgui::State::instance().fps = frame_count;
+			dgui::State::instance().ups = update_count;
+			frame_count = 0;
+			update_count = 0;
+			avg_frame_time = 0;
+			second_counter = get_time_milliseconds();
+		}
     }
 
 #ifdef DEV_ENV

@@ -1,9 +1,12 @@
 #include "camera.hpp"
 #include "lt_utils.hpp"
+#include "input.hpp"
+#include <GLFW/glfw3.h>
+#include "debug_gui.hpp"
 
 static lt::Logger logger("camera");
 
-void
+lt_internal void
 update_frustum_right_and_up(Frustum& frustum, Vec3f up_world)
 {
     Vec3f right_vec = lt::normalize(lt::cross(frustum.front.v, up_world));
@@ -29,71 +32,114 @@ Camera::Camera(Vec3f position, Vec3f front_vec, Vec3f up_world,
     frustum.projection = lt::perspective(lt::radians(fovy), ratio, ZNEAR, ZFAR);
 
     update_frustum_right_and_up(frustum, up_world);
+
+	previous_frustum = frustum;
 }
 
 void
-Camera::move(Direction dir)
+Camera::add_frame_movement(Direction dir)
 {
-    f32 offset = move_speed;
     switch (dir)
     {
-    case Direction::Left: {
-        frustum.position -= frustum.right.v * offset;
-    } break;
-
-    case Direction::Right: {
-        frustum.position += frustum.right.v * offset;
-    } break;
-
-    case Direction::Forwards: {
-        frustum.position += frustum.front.v * offset;
-    } break;
-
-    case Direction::Backwards: {
-        frustum.position -= frustum.front.v * offset;
-    } break;
-
-    default:
-        LT_Assert(false);
+    case Direction::Left: curr_direction = lt::normalize(curr_direction - frustum.right.v); break;
+    case Direction::Right: curr_direction = lt::normalize(curr_direction + frustum.right.v); break;
+    case Direction::Forwards: curr_direction = lt::normalize(curr_direction + frustum.front.v); break;
+    case Direction::Backwards: curr_direction = lt::normalize(curr_direction - frustum.front.v); break;
+    default: LT_Assert(false);
     }
 }
 
-lt_internal void
-do_rotation(Camera *camera, Camera::RotationAxis axis, f32 angle)
+void
+Camera::add_frame_rotation(RotationAxis axis)
 {
-    switch (axis)
-    {
-    case Camera::RotationAxis::Up: {
-        Quatf rotated_front = lt::rotate(camera->frustum.front, angle, camera->frustum.up);
-        camera->frustum.front = rotated_front;
-    } break;
-
-    case Camera::RotationAxis::Right: {
-        Quatf rotated_front = lt::rotate(camera->frustum.front, angle, camera->frustum.right);
-        camera->frustum.front = rotated_front;
-    } break;
-
-    default:
-        LT_Assert(false);
-    }
-
-    update_frustum_right_and_up(camera->frustum, camera->up_world);
+	switch (axis)
+	{
+	case RotationAxis::Up:
+		curr_rotation_axis = lt::normalize(curr_rotation_axis + frustum.up.v);
+		break;
+	case RotationAxis::Down:
+		curr_rotation_axis = lt::normalize(curr_rotation_axis - frustum.up.v);
+		break;
+	case RotationAxis::Right:
+		curr_rotation_axis = lt::normalize(curr_rotation_axis + frustum.right.v);
+		break;
+	case RotationAxis::Left:
+		curr_rotation_axis = lt::normalize(curr_rotation_axis - frustum.right.v);
+		break;
+	default: LT_Assert(false);
+	}
 }
 
 void
-Camera::rotate_positive(RotationAxis axis)
+Camera::update(Key *kb)
 {
-	do_rotation(this, axis, rotation_speed);
+	previous_frustum = frustum;
+	reset();
+
+    // Register the camera movements from buttons.
+    if (kb[GLFW_KEY_A].is_pressed)
+        add_frame_movement(Direction::Left);
+
+    if (kb[GLFW_KEY_D].is_pressed)
+        add_frame_movement(Direction::Right);
+
+    if (kb[GLFW_KEY_W].is_pressed)
+        add_frame_movement(Direction::Forwards);
+
+	// Register the camera rotation axis from the buttons
+    if (kb[GLFW_KEY_S].is_pressed)
+        add_frame_movement(Direction::Backwards);
+
+    if (kb[GLFW_KEY_RIGHT].is_pressed)
+        add_frame_rotation(RotationAxis::Down);
+
+    if (kb[GLFW_KEY_LEFT].is_pressed)
+        add_frame_rotation(RotationAxis::Up);
+
+    if (kb[GLFW_KEY_UP].is_pressed)
+        add_frame_rotation(RotationAxis::Right);
+
+    if (kb[GLFW_KEY_DOWN].is_pressed)
+        add_frame_rotation(RotationAxis::Left);
+
+	// Finally move and rotate the camera based on the previous added frame data.
+	move();
+	rotate();
 }
 
 void
-Camera::rotate_negative(RotationAxis axis)
+Camera::rotate()
 {
-	do_rotation(this, axis, -rotation_speed);
+	const Quatf rotated_front = lt::rotate(frustum.front, rotation_speed, Quatf(0, curr_rotation_axis));
+	frustum.front = rotated_front;
+	update_frustum_right_and_up(frustum, up_world);
 }
 
 Mat4f
-Camera::view_matrix() const
+Camera::view_matrix(f64 lag_offset) const
 {
-    return lt::look_at(frustum.position, frustum.position + frustum.front.v, frustum.up.v);
+	Vec3f position;
+	Quatf front;
+    Vec3f up_vec;
+
+	if (dgui::State::instance().enable_interpolation)
+	{
+		position = previous_frustum.position*(1.0-lag_offset) + frustum.position*lag_offset;
+
+		if (previous_frustum.front == frustum.front)
+			front = previous_frustum.front;
+		else
+			front = lt::slerp(previous_frustum.front, frustum.front, (f32)lag_offset);
+
+		Vec3f right_vec = lt::normalize(lt::cross(front.v, up_world));
+		up_vec = lt::normalize(lt::cross(right_vec, front.v));
+	}
+	else
+	{
+		position = previous_frustum.position;
+		front = previous_frustum.front;
+		up_vec = previous_frustum.up.v;
+	}
+
+    return lt::look_at(position, position + front.v, up_vec);
 }

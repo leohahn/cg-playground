@@ -33,13 +33,15 @@ dgui::draw(GLFWwindow *window, Entities &entities)
 	{
 		ImGui::Checkbox("Normal mapping", &state.enable_normal_mapping);
 		ImGui::Checkbox("Multisampling", &state.enable_multisampling);
+		ImGui::Checkbox("Interpolation", &state.enable_interpolation);
 		ImGui::Checkbox("Draw shadow map", &state.draw_shadow_map);
 		ImGui::Text("Position: x = %.2f, y = %.2f, z = %.2f",
 					state.camera_pos.x, state.camera_pos.y, state.camera_pos.z);
 		ImGui::Text("Front: x = %.2f, y = %.2f, z = %.2f",
 					state.camera_front.x, state.camera_front.y, state.camera_front.z);
-		ImGui::Text("Frame time: %.2f ms/frame", state.frame_time * 1000);
+		ImGui::Text("Frame time: %.2f ms/frame", state.frame_time);
 		ImGui::Text("FPS: %.2f", state.fps);
+		ImGui::Text("UPS: %.2f", state.ups);
 		ImGui::End();
 	}
 

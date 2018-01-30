@@ -86,8 +86,8 @@ draw_entities_for_shadow_map(const Entities &e, const Mat4f &light_view, const V
 }
 
 void
-draw_entities(const Entities &e, const Camera &camera, GLContext &context, ShadowMap &shadow_map,
-			  EntityHandle selected_entity)
+draw_entities(f64 lag_offset, const Entities &e, const Camera &camera, GLContext &context,
+			  ShadowMap &shadow_map, EntityHandle selected_entity)
 {
 	for (EntityHandle handle = 0; handle < MAX_ENTITIES; handle++)
 	{
@@ -100,7 +100,7 @@ draw_entities(const Entities &e, const Camera &camera, GLContext &context, Shado
 			context.use_shader(*shader);
 
 			shader->set_matrix("model", e.transform[handle].mat);
-			shader->set_matrix("view", camera.view_matrix());
+			shader->set_matrix("view", camera.view_matrix(lag_offset));
 
 			if (handle == selected_entity)
 				glStencilMask(0xff);
@@ -138,7 +138,7 @@ draw_entities(const Entities &e, const Camera &camera, GLContext &context, Shado
 			context.use_shader(*shader);
 
 			shader->set_matrix("model", e.transform[handle].mat);
-			shader->set_matrix("view", camera.view_matrix());
+			shader->set_matrix("view", camera.view_matrix(lag_offset));
             shader->set3f("view_position", camera.frustum.position);
             shader->set1f("material.shininess", e.renderable[handle].shininess);
 

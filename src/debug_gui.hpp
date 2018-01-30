@@ -18,8 +18,10 @@ struct State
 	bool enable_normal_mapping = true;
 	bool enable_multisampling = true;
 	bool draw_shadow_map = false;
+	bool enable_interpolation = true;
 	f32  frame_time;
 	f32  fps;
+	f32  ups;
 	Vec3f camera_pos;
 	Vec3f camera_front;
 	f32 pcf_texel_offset = 1.0f;
