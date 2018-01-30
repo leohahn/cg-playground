@@ -43,22 +43,15 @@ struct LightEmmiter
 	Shader *shader;
 };
 
-// struct ShadowCaster
-// {
-// 	Shader *shader;
-// };
-
 typedef isize EntityHandle;
 
 struct Entities
 {
-	// initialize arrays to zero
 	u32           mask[MAX_ENTITIES];
 	Transform     transform[MAX_ENTITIES];
 	Renderable    renderable[MAX_ENTITIES];
 	LightEmmiter  light_emmiter[MAX_ENTITIES];
 	std::string   name[MAX_ENTITIES];
-	// ShadowCaster  shadow_caster[MAX_ENTITIES];
 
 	EntityHandle create(u32 components_mask);
 	void         destroy(EntityHandle id);

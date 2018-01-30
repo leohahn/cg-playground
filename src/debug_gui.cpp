@@ -7,12 +7,33 @@
 #include "imgui/imgui.h"
 #include "imgui_impl_glfw.hpp"
 #include "lt_utils.hpp"
-#include <stdio.h>
+#include <cstdio>
 
 using std::cout;
 using std::endl;
 
 lt_global_variable lt::Logger logger("debug_gui");
+
+lt_internal void
+draw_vec3(f32 &x, f32 &y, f32 &z, u32 id, i32 width = 65)
+{
+	lt_local_persist char x_buf[10] = {};
+	lt_local_persist char y_buf[10] = {};
+	lt_local_persist char z_buf[10] = {};
+
+	std::snprintf(x_buf, 10, "x##%u", id);
+	std::snprintf(y_buf, 10, "y##%u", id);
+	std::snprintf(z_buf, 10, "z##%u", id);
+
+	ImGui::PushItemWidth(width);
+	ImGui::DragFloat(x_buf, &x, 0.05f, 0, 0, "%.2f");
+	ImGui::SameLine();
+	ImGui::PushItemWidth(width);
+	ImGui::DragFloat(y_buf, &y, 0.05f, 0, 0, "%.2f");
+	ImGui::SameLine();
+	ImGui::PushItemWidth(width);
+	ImGui::DragFloat(z_buf, &z, 0.05f, 0, 0, "%.2f");
+}
 
 void
 dgui::init(GLFWwindow *window)
@@ -79,32 +100,26 @@ dgui::draw(GLFWwindow *window, Entities &entities)
 						// directly changing the transform matrix is kinda sneaky.
 						Mat4f &transform = entities.transform[curr_handle].mat;
 
+						i32 id = 0;
+
 						ImGui::Text("Position:");
-						// ImGui::SameLine();
-						ImGui::PushItemWidth(65);
-						ImGui::DragFloat("x", &transform(0, 3), 0.05f, 0, 0, "%.3f");
-						ImGui::SameLine();
-						ImGui::PushItemWidth(65);
-						ImGui::DragFloat("y", &transform(1, 3), 0.05f, 0, 0, "%.3f");
-						ImGui::SameLine();
-						ImGui::PushItemWidth(65);
-						ImGui::DragFloat("z", &transform(2, 3), 0.05f, 0, 0, "%.3f");
+						draw_vec3(transform(0, 3), transform(1, 3), transform(2, 3), id++);
 
 						ImGui::Text("Scale:");
-						// ImGui::SameLine();
-						ImGui::PushItemWidth(65);
-						ImGui::DragFloat("x##2", &transform(0, 0), 0.05f, 0, 0, "%.3f");
-						ImGui::SameLine();
-						ImGui::PushItemWidth(65);
-						ImGui::DragFloat("y##2", &transform(1, 1), 0.05f, 0, 0, "%.3f");
-						ImGui::SameLine();
-						ImGui::PushItemWidth(65);
-						ImGui::DragFloat("z##2", &transform(2, 2), 0.05f, 0, 0, "%.3f");
+						draw_vec3(transform(0, 0), transform(1, 1), transform(2, 2), id++);
 
 						if (entities.has(curr_handle, ComponentKind_LightEmmiter))
 						{
 							LightEmmiter &le = entities.light_emmiter[curr_handle];
 							le.position = Vec3f(transform.col(3));
+
+							ImGui::Text("Light variables:");
+							ImGui::Text("Ambient:");
+							draw_vec3(le.ambient.x, le.ambient.y, le.ambient.z, id++);
+							ImGui::Text("Diffuse:");
+							draw_vec3(le.diffuse.x, le.diffuse.y, le.diffuse.z, id++);
+							ImGui::Text("Specular:");
+							draw_vec3(le.specular.x, le.specular.y, le.specular.z, id++);
 						}
 					}
 					ImGui::TreePop();

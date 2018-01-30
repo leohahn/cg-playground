@@ -164,24 +164,26 @@ create_application_and_set_context(Resources &resources, const char *title, i32 
 	glEnable(GL_STENCIL_TEST);
     glViewport(0, 0, width, height);
 
-	// Create the default HDR texture
-	glGenTextures(1, &app.hdr_texture);
-	glBindTexture(GL_TEXTURE_2D, app.hdr_texture);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, width, height, 0, GL_RGBA, GL_FLOAT, nullptr);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	// Create a depth renderbuffer for the fbo
-	glGenRenderbuffers(1, &app.hdr_rbo);
-	glBindRenderbuffer(GL_RENDERBUFFER, app.hdr_rbo);
-	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
-	// Create the default HDR framebuffer
-	glGenFramebuffers(1, &app.hdr_fbo);
-	glBindFramebuffer(GL_FRAMEBUFFER, app.hdr_fbo);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, app.hdr_texture, 0);
-	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, app.hdr_rbo);
+	{
+		// Create the default HDR texture
+		glGenTextures(1, &app.hdr_texture);
+		glBindTexture(GL_TEXTURE_2D, app.hdr_texture);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, width, height, 0, GL_RGBA, GL_FLOAT, nullptr);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		// Create a depth renderbuffer for the fbo
+		glGenRenderbuffers(1, &app.hdr_rbo);
+		glBindRenderbuffer(GL_RENDERBUFFER, app.hdr_rbo);
+		glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
+		// Create the default HDR framebuffer
+		glGenFramebuffers(1, &app.hdr_fbo);
+		glBindFramebuffer(GL_FRAMEBUFFER, app.hdr_fbo);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, app.hdr_texture, 0);
+		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, app.hdr_rbo);
 
-	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-		logger.error("Failed to properly create the HDR framebuffer for the application.");
+		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+			logger.error("Failed to properly create the HDR framebuffer for the application.");
+	}
 
 	app.render_quad = resources.load_hdr_render_quad(app.hdr_texture);
 
