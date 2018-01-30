@@ -325,6 +325,8 @@ game_render(f64 lag_offset, const Application &app, Camera &camera, Entities &en
 	LT_Assert(lag_offset < 1);
 	LT_Assert(lag_offset >= 0);
 
+	auto &state = dgui::State::instance();
+
 	camera.interpolate_frustum(lag_offset);
 
 	const Mat4f view_matrix = camera.view_matrix();
@@ -342,7 +344,7 @@ game_render(f64 lag_offset, const Application &app, Camera &camera, Entities &en
 	glBindFramebuffer(GL_FRAMEBUFFER, app.hdr_fbo);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	if (dgui::State::instance().draw_shadow_map)
+	if (state.draw_shadow_map)
 	{
 		// Draws the shadowmap instead of the scene
 		draw_unit_quad(shadow_map_surface, *shaders.shadow_map_render, context);
@@ -365,7 +367,7 @@ game_render(f64 lag_offset, const Application &app, Camera &camera, Entities &en
 
 		draw_entities(lag_offset, entities, camera, context, shadow_map, dgui::State::instance().selected_entity_handle);
 
-		if (dgui::State::instance().selected_entity_handle != -1)
+		if (state.selected_entity_handle != -1)
 		{
 			glStencilFunc(GL_NOTEQUAL, 1, 0xff);
 			glStencilMask(0x00);
@@ -388,6 +390,10 @@ game_render(f64 lag_offset, const Application &app, Camera &camera, Entities &en
 	// Draw HDR texture to a quad.
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	context.use_shader(*shaders.hdr_texture_to_quad);
+	shaders.hdr_texture_to_quad->set1i("enable_tone_mapping", state.enable_tone_mapping);
+
 	draw_unit_quad(app.render_quad, *shaders.hdr_texture_to_quad, context);
 
 	glfwSwapBuffers(app.window);

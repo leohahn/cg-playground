@@ -19,6 +19,7 @@ struct State
 	bool enable_multisampling = true;
 	bool draw_shadow_map = false;
 	bool enable_interpolation = true;
+	bool enable_tone_mapping = true;
 	f32  frame_time;
 	f32  fps;
 	f32  ups;

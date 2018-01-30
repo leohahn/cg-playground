@@ -54,6 +54,7 @@ dgui::draw(GLFWwindow *window, Entities &entities)
 	{
 		ImGui::Checkbox("Normal mapping", &state.enable_normal_mapping);
 		ImGui::Checkbox("Multisampling", &state.enable_multisampling);
+		ImGui::Checkbox("Tone mapping", &state.enable_tone_mapping);
 		ImGui::Checkbox("Interpolation", &state.enable_interpolation);
 		ImGui::Checkbox("Draw shadow map", &state.draw_shadow_map);
 		ImGui::Text("Position: x = %.2f, y = %.2f, z = %.2f",
@@ -88,7 +89,7 @@ dgui::draw(GLFWwindow *window, Entities &entities)
 
 				// ImGui::SetNextTreeNodeOpen(curr_handle == state.selected_entity_handle);
 				const bool node_open = ImGui::TreeNodeEx((void*)(intptr_t)curr_handle, node_flags,
-												   "%s", it.second.c_str());
+														 "%s", it.second.c_str());
 
 				if (ImGui::IsItemClicked())
 					node_clicked = curr_handle;
