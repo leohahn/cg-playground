@@ -31,25 +31,29 @@ out vec4 frag_color;
 
 uniform sampler2D texture_hdr;
 uniform bool enable_tone_mapping = true;
+uniform bool enable_gamma_correction = true;
+uniform float exposure = 1.0;
 
 void
 main()
 {
 	const float gamma = 2.2;
 	vec3 hdr_color = texture(texture_hdr, tex_coords).rgb;
+	vec3 map;
 
 	if (enable_tone_mapping)
 	{
-		vec3 map = hdr_color / (hdr_color + vec3(1.0));
-		map = pow(map, vec3(1.0/gamma));
-		frag_color = vec4(map, 1.0);
+		map = vec3(1.0) - exp(-hdr_color *exposure);
 	}
 	else
+		map = hdr_color;
+
+	if (enable_gamma_correction)
 	{
-		vec3 map = hdr_color;
 		map = pow(map, vec3(1.0/gamma));
-		frag_color = vec4(map, 1.0);
 	}
+
+	frag_color = vec4(map, 1.0);
 }
 
 #endif

@@ -230,10 +230,6 @@ main()
 	light_contributions += calc_directional_light(dir_light, normal, surface_normal, vs_out.frag_pos_light_space);
 
     frag_color = vec4(light_contributions, 1.0f);
-
-    // Apply gamma correction
-    const float gamma = 2.2;
-    frag_color.rgb = pow(frag_color.rgb, vec3(1.0/gamma));
 }
 
 #endif

@@ -20,6 +20,8 @@ struct State
 	bool draw_shadow_map = false;
 	bool enable_interpolation = true;
 	bool enable_tone_mapping = true;
+	bool enable_gamma_correction = true;
+	f32  exposure = 1.0f;
 	f32  frame_time;
 	f32  fps;
 	f32  ups;

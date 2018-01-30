@@ -39,14 +39,15 @@ void
 dgui::init(GLFWwindow *window)
 {
 	 ImGui_ImplGlfwGL3_Init(window, true);
-	 // ImGui::StyleColorsDark();
-	 ImGui::StyleColorsClassic();
+	 ImGui::StyleColorsDark();
+	 // ImGui::StyleColorsClassic();
 }
 
 void
 dgui::draw(GLFWwindow *window, Entities &entities)
 {
 	auto &state = State::instance();
+	i32 id = 0;
 
 	ImGui_ImplGlfwGL3_NewFrame();
 
@@ -54,7 +55,12 @@ dgui::draw(GLFWwindow *window, Entities &entities)
 	{
 		ImGui::Checkbox("Normal mapping", &state.enable_normal_mapping);
 		ImGui::Checkbox("Multisampling", &state.enable_multisampling);
+		ImGui::Checkbox("Gamma correction", &state.enable_gamma_correction);
 		ImGui::Checkbox("Tone mapping", &state.enable_tone_mapping);
+
+		ImGui::PushItemWidth(65);
+		ImGui::DragFloat("Exposure", &state.exposure, 0.05f, 0.05f, 100);
+
 		ImGui::Checkbox("Interpolation", &state.enable_interpolation);
 		ImGui::Checkbox("Draw shadow map", &state.draw_shadow_map);
 		ImGui::Text("Position: x = %.2f, y = %.2f, z = %.2f",
@@ -100,8 +106,6 @@ dgui::draw(GLFWwindow *window, Entities &entities)
 						// HACK: this code should be here just for testing.
 						// directly changing the transform matrix is kinda sneaky.
 						Mat4f &transform = entities.transform[curr_handle].mat;
-
-						i32 id = 0;
 
 						ImGui::Text("Position:");
 						draw_vec3(transform(0, 3), transform(1, 3), transform(2, 3), id++);

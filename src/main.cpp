@@ -393,6 +393,8 @@ game_render(f64 lag_offset, const Application &app, Camera &camera, Entities &en
 
 	context.use_shader(*shaders.hdr_texture_to_quad);
 	shaders.hdr_texture_to_quad->set1i("enable_tone_mapping", state.enable_tone_mapping);
+	shaders.hdr_texture_to_quad->set1i("enable_gamma_correction", state.enable_gamma_correction);
+	shaders.hdr_texture_to_quad->set1f("exposure", state.exposure);
 
 	draw_unit_quad(app.render_quad, *shaders.hdr_texture_to_quad, context);
 
