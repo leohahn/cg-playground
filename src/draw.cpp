@@ -5,6 +5,8 @@
 #include "gl_context.hpp"
 #include "lt_utils.hpp"
 #include "camera.hpp"
+#include "application.hpp"
+#include "debug_gui.hpp"
 
 lt_internal lt::Logger logger("draw");
 
@@ -65,6 +67,56 @@ draw_unit_quad(Mesh *mesh, Shader &shader, GLContext &context)
 }
 
 void
+draw_unit_quad_and_apply_bloom(const Application &app, Shader &render_shader,
+							   Shader &bloom_shader, GLContext &context)
+{
+	bool horizontal = true;
+	if (dgui::State::instance().enable_bloom)
+	{
+		bool first_iteration = true;
+		i32 num_iterations = 10;
+
+		context.use_shader(bloom_shader);
+		for (i32 i = 0; i < num_iterations; i++)
+		{
+			glBindFramebuffer(GL_FRAMEBUFFER, app.pingpong_fbos[horizontal]);
+			bloom_shader.set1i("horizontal", horizontal);
+
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D,
+						  first_iteration ? app.bloom_texture : app.pingpong_textures[!horizontal]);
+
+			context.bind_vao(app.render_quad->vao);
+			glDrawElements(GL_TRIANGLES, app.render_quad->number_of_indices(), GL_UNSIGNED_INT, 0);
+			context.unbind_vao();
+
+			horizontal = !horizontal;
+			if (first_iteration)
+				first_iteration = false;
+		}
+	}
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	context.use_shader(render_shader);
+	render_shader.set1i("display_bloom_filter", dgui::State::instance().display_bloom_filter);
+	render_shader.set1i("enable_bloom", dgui::State::instance().enable_bloom);
+
+	glActiveTexture(GL_TEXTURE0 + render_shader.texture_unit("texture_scene"));
+	glBindTexture(GL_TEXTURE_2D, app.hdr_texture);
+
+	if (dgui::State::instance().enable_bloom)
+	{
+		const i32 last_index = !horizontal;
+		glActiveTexture(GL_TEXTURE0 + render_shader.texture_unit("texture_bloom"));
+		glBindTexture(GL_TEXTURE_2D, app.pingpong_textures[last_index]);
+	}
+
+	context.bind_vao(app.render_quad->vao);
+	glDrawElements(GL_TRIANGLES, app.render_quad->number_of_indices(), GL_UNSIGNED_INT, 0);
+	context.unbind_vao();
+}
+
+void
 draw_entities_for_shadow_map(const Entities &e, const Mat4f &light_view, const Vec3f &light_pos,
 							 ShadowMap &shadow_map, GLContext &context)
 {
@@ -97,12 +149,15 @@ draw_entities(f64 lag_offset, const Entities &e, const Camera &camera, GLContext
 		{
 			// Draw lights first
 			Shader *shader = e.renderable[handle].shader;
-			Mesh *mesh = e.renderable[handle].mesh;
+			const Mesh *mesh = e.renderable[handle].mesh;
+			const LightEmmiter le = e.light_emmiter[handle];
 
 			context.use_shader(*shader);
 
 			shader->set_matrix("model", e.transform[handle].mat);
 			shader->set_matrix("view", view_matrix);
+			shader->set3f("light_color", le.diffuse);
+			shader->set1f("bloom_threshold", dgui::State::instance().bloom_threshold);
 
 			if (handle == selected_entity)
 				glStencilMask(0xff);
@@ -114,8 +169,6 @@ draw_entities(f64 lag_offset, const Entities &e, const Camera &camera, GLContext
 				glDrawElements(GL_TRIANGLES, sm.num_indices, GL_UNSIGNED_INT, (const void*)sm.start_index);
 			}
 			context.unbind_vao();
-
-			LightEmmiter le = e.light_emmiter[handle];
 
 			context.use_shader(*le.shader);
             for (isize i = 0; i < 4; ++i)
@@ -143,6 +196,7 @@ draw_entities(f64 lag_offset, const Entities &e, const Camera &camera, GLContext
 			shader->set_matrix("view", view_matrix);
             shader->set3f("view_position", camera.frustum.position);
             shader->set1f("material.shininess", e.renderable[handle].shininess);
+			shader->set1f("bloom_threshold", dgui::State::instance().bloom_threshold);
 
 			// Config the shadow map texture
 			{

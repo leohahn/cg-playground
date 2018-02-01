@@ -60,7 +60,8 @@ in VS_OUT
 	vec4 frag_pos_light_space;
 } vs_out;
 
-out vec4 frag_color;
+layout (location = 0) out vec4 frag_color;
+layout (location = 1) out vec4 bright_color;
 
 const int NUM_POINT_LIGHTS = 1;
 
@@ -99,6 +100,7 @@ uniform PointLight point_lights[NUM_POINT_LIGHTS];
 uniform DirectionalLight dir_light;
 uniform Material material;
 uniform mat4 model;
+uniform float bloom_threshold = 1.0;
 
 uniform sampler2D texture_shadow_map;
 
@@ -230,6 +232,12 @@ main()
 	light_contributions += calc_directional_light(dir_light, normal, surface_normal, vs_out.frag_pos_light_space);
 
     frag_color = vec4(light_contributions, 1.0f);
+
+	float brightness = dot(frag_color.rgb, vec3(0.2126, 0.7152, 0.0722));
+	if (brightness > bloom_threshold)
+		bright_color = vec4(frag_color.rgb, 1.0);
+	else
+		bright_color = vec4(0.0, 0.0, 0.0, 1.0);
 }
 
 #endif

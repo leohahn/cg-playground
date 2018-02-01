@@ -26,6 +26,7 @@
 #include "stb_image.h"
 #include "input.hpp"
 #include "entities.hpp"
+#include "application.hpp"
 
 //
 // TODOs
@@ -39,17 +40,10 @@ lt_global_variable lt::Logger logger("main");
 lt_global_variable bool g_display_debug_gui = true;
 lt_global_variable Key g_keyboard[NUM_KEYBOARD_KEYS] = {};
 
-lt_internal void
-framebuffer_size_callback(GLFWwindow *w, i32 width, i32 height)
-{
-    LT_Unused(w);
-    glViewport(0, 0, width, height);
-}
-
 lt_internal inline f64
 get_time_milliseconds()
 {
-	return glfwGetTime() * 1000.0f;
+	return glfwGetTime() * 1000.0;
 }
 
 lt_internal void
@@ -116,79 +110,6 @@ process_watcher_events(Shader &basic_shader, Shader &light_shader)
     }
 }
 #endif
-
-struct Application
-{
-	GLFWwindow *window;
-	const char *title;
-	i32         screen_width;
-	i32         screen_height;
-	u32         hdr_fbo;
-	u32         hdr_texture;
-	u32         hdr_rbo;
-	Mesh       *render_quad;
-};
-
-lt_internal Application
-create_application_and_set_context(Resources &resources, const char *title, i32 width, i32 height)
-{
-	logger.log("Creating the application.");
-	Application app = {};
-	app.title = title;
-	app.screen_width = width;
-	app.screen_height = height;
-
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    glfwWindowHint(GLFW_RESIZABLE, false);
-	glfwWindowHint(GLFW_SAMPLES, 4);
-
-    app.window = glfwCreateWindow(width, height, title, nullptr, nullptr);
-    if (!app.window)
-    {
-        glfwTerminate();
-        LT_Fail("Failed to create glfw window.\n");
-    }
-
-    glfwMakeContextCurrent(app.window);
-    glfwSetFramebufferSizeCallback(app.window, framebuffer_size_callback);
-
-    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
-        LT_Fail("Failed to initialize GLAD\n");
-
-    glEnable(GL_CULL_FACE);
-    glFrontFace(GL_CCW);
-
-    glEnable(GL_DEPTH_TEST);
-	glEnable(GL_STENCIL_TEST);
-    glViewport(0, 0, width, height);
-
-	{
-		// Create the default HDR texture
-		glGenTextures(1, &app.hdr_texture);
-		glBindTexture(GL_TEXTURE_2D, app.hdr_texture);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, width, height, 0, GL_RGBA, GL_FLOAT, nullptr);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		// Create a depth renderbuffer for the fbo
-		glGenRenderbuffers(1, &app.hdr_rbo);
-		glBindRenderbuffer(GL_RENDERBUFFER, app.hdr_rbo);
-		glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
-		// Create the default HDR framebuffer
-		glGenFramebuffers(1, &app.hdr_fbo);
-		glBindFramebuffer(GL_FRAMEBUFFER, app.hdr_fbo);
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, app.hdr_texture, 0);
-		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, app.hdr_rbo);
-
-		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-			logger.error("Failed to properly create the HDR framebuffer for the application.");
-	}
-
-	app.render_quad = resources.load_hdr_render_quad(app.hdr_texture);
-
-    return app;
-}
 
 enum TextureFormat
 {
@@ -315,6 +236,19 @@ struct Shaders
     Shader *skybox;
     Shader *shadow_map;
     Shader *shadow_map_render;
+	Shader *bloom;
+
+	~Shaders()
+	{
+		delete light;
+		delete selection;
+		delete hdr_texture_to_quad;
+		delete basic;
+		delete skybox;
+		delete shadow_map;
+		delete shadow_map_render;
+		delete bloom;
+	}
 };
 
 lt_internal void
@@ -396,7 +330,8 @@ game_render(f64 lag_offset, const Application &app, Camera &camera, Entities &en
 	shaders.hdr_texture_to_quad->set1i("enable_gamma_correction", state.enable_gamma_correction);
 	shaders.hdr_texture_to_quad->set1f("exposure", state.exposure);
 
-	draw_unit_quad(app.render_quad, *shaders.hdr_texture_to_quad, context);
+	// draw_unit_quad(app.render_quad, *shaders.hdr_texture_to_quad, context);
+	draw_unit_quad_and_apply_bloom(app, *shaders.hdr_texture_to_quad, *shaders.bloom, context);
 
 	glfwSwapBuffers(app.window);
 }
@@ -416,7 +351,7 @@ main(void)
 
 	Resources resources = {};
 
-    Application app = create_application_and_set_context(resources, "CG playground", WINDOW_WIDTH, WINDOW_HEIGHT);
+    Application app = application_create_and_set_context(resources, "CG playground", WINDOW_WIDTH, WINDOW_HEIGHT);
 
 #ifdef DEV_ENV
     pthread_t watcher_thread;
@@ -446,7 +381,8 @@ main(void)
     });
 
     shaders.hdr_texture_to_quad = new Shader("render-hdr-texture-to-quad.glsl");
-	shaders.hdr_texture_to_quad->add_texture("texture_hdr", context);
+	shaders.hdr_texture_to_quad->add_texture("texture_scene", context);
+	shaders.hdr_texture_to_quad->add_texture("texture_bloom", context);
 
     shaders.basic = new Shader("basic.glsl");
 	shaders.basic->add_texture("material.texture_diffuse1", context);
@@ -467,6 +403,9 @@ main(void)
 
     shaders.shadow_map_render = new Shader("shadow_map_render.glsl");
 	shaders.shadow_map_render->add_texture("texture_shadow_map", context);
+
+    shaders.bloom = new Shader("bloom.glsl");
+	shaders.bloom->add_texture("texture_image", context);
 
     const f32 FIELD_OF_VIEW = 60.0f;
     const f32 MOVE_SPEED = 0.33f;
@@ -575,7 +514,7 @@ main(void)
 		LightEmmiter le = {};
 		le.position = Vec3f(3.0f, 5.0f, 0.0f);
 		le.ambient = Vec3f(0.01f);
-		le.diffuse = Vec3f(0.5f);
+		le.diffuse = Vec3f(3.0f);
 		le.specular = Vec3f(1.0f);
 		le.constant = 1.0f;
 		le.linear = 0.35;

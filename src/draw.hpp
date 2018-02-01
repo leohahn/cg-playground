@@ -12,6 +12,7 @@ struct GLContext;
 struct CubemapMesh;
 struct Entities;
 struct Camera;
+struct Application;
 
 struct ShadowMap
 {
@@ -36,5 +37,8 @@ void draw_entities_for_shadow_map(const Entities &e, const Mat4f &light_view, co
 void draw_unit_quad(Mesh *mesh, Shader &shader, GLContext &context);
 void draw_selected_entity(const Entities &e, EntityHandle handle, Shader &selection_shader,
 						  const Mat4f &view, GLContext &context);
+
+void draw_unit_quad_and_apply_bloom(const Application &app, Shader &render_shader,
+									Shader &bloom_shader, GLContext &context);
 
 #endif // DRAW_HPP

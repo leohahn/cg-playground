@@ -21,6 +21,9 @@ struct State
 	bool enable_interpolation = true;
 	bool enable_tone_mapping = true;
 	bool enable_gamma_correction = true;
+	bool enable_bloom = false;
+	bool display_bloom_filter = false;
+	f32  bloom_threshold = 1.0f;
 	f32  exposure = 1.0f;
 	f32  frame_time;
 	f32  fps;

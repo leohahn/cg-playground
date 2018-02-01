@@ -21,7 +21,7 @@ executable('rbs',
            'lt/src/lt_fs.cpp', 'lt/src/lt_math.cpp', 'src/camera.cpp', 'src/gl_resources.cpp',
            'thirdparty/stb_image.cpp', 'src/draw.cpp', 'src/mesh.cpp', 'src/debug_gui.cpp',
 		   'src/imgui_impl_glfw.cpp', 'thirdparty/imgui/imgui.cpp', 'thirdparty/imgui/imgui_draw.cpp',
-		   'thirdparty/imgui/imgui_demo.cpp', 'src/resources.cpp', 'src/entities.cpp',
+		   'thirdparty/imgui/imgui_demo.cpp', 'src/resources.cpp', 'src/entities.cpp', 'src/application.cpp',
            dependencies: [
              thread_dep,
              m_dep,

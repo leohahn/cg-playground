@@ -57,6 +57,11 @@ dgui::draw(GLFWwindow *window, Entities &entities)
 		ImGui::Checkbox("Multisampling", &state.enable_multisampling);
 		ImGui::Checkbox("Gamma correction", &state.enable_gamma_correction);
 		ImGui::Checkbox("Tone mapping", &state.enable_tone_mapping);
+		ImGui::Checkbox("Bloom", &state.enable_bloom);
+		ImGui::Checkbox("Bloom filter", &state.display_bloom_filter);
+
+		ImGui::PushItemWidth(65);
+		ImGui::DragFloat("Bloom threshold", &state.bloom_threshold, 0.05f, 0, 100);
 
 		ImGui::PushItemWidth(65);
 		ImGui::DragFloat("Exposure", &state.exposure, 0.05f, 0.05f, 100);
@@ -132,7 +137,7 @@ dgui::draw(GLFWwindow *window, Entities &entities)
 			}
 			if (node_clicked != -1)
 			{
-				state.selected_entity_handle = node_clicked;
+				state.selected_entity_handle = (node_clicked == state.selected_entity_handle) ? -1 : node_clicked;
 			}
 			ImGui::PopStyleVar();
 		}
