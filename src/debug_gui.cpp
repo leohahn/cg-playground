@@ -8,6 +8,8 @@
 #include "imgui_impl_glfw.hpp"
 #include "lt_utils.hpp"
 #include <cstdio>
+#include <map>
+#include <clocale>
 
 using std::cout;
 using std::endl;
@@ -40,6 +42,7 @@ dgui::init(GLFWwindow *window)
 {
 	 ImGui_ImplGlfwGL3_Init(window, true);
 	 ImGui::StyleColorsDark();
+	 setlocale(LC_NUMERIC, "en_US.UTF-8");
 	 // ImGui::StyleColorsClassic();
 }
 
@@ -143,6 +146,39 @@ dgui::draw(GLFWwindow *window, Entities &entities)
 		}
 		ImGui::End();
 	}
+
+	if (ImGui::Begin("Performance", nullptr))
+	{
+		ImGui::PushStyleVar(ImGuiStyleVar_IndentSpacing, ImGui::GetFontSize()*3);
+
+		i32 node_clicked = -1;
+		lt_local_persist i32 selected_node = -1;
+
+		for (i32 i = 0; i < PerformanceRegion_Count; i++)
+		{
+			const u64 region_val = state.performance_regions[i];
+
+			const ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow
+				| ImGuiTreeNodeFlags_OpenOnDoubleClick
+				| ((i == selected_node) ? ImGuiTreeNodeFlags_Selected : 0);
+
+			// ImGui::SetNextTreeNodeOpen(curr_handle == state.selected_entity_handle);
+			const bool node_open = ImGui::TreeNodeEx((void*)(intptr_t)i, node_flags,
+													 "%s: %'lu cycles", PerformanceRegionNames[i], region_val);
+
+			if (ImGui::IsItemClicked())
+				node_clicked = i;
+
+			if (node_open)
+				ImGui::TreePop();
+		}
+		if (node_clicked != -1)
+			selected_node = (node_clicked == selected_node) ? -1 : node_clicked;
+
+		ImGui::PopStyleVar();
+		ImGui::End();
+	}
+	// ImGui::ShowDemoWindow();
 
 	i32 display_w, display_h;
 	glfwGetFramebufferSize(window, &display_w, &display_h);

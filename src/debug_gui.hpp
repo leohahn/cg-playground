@@ -8,10 +8,34 @@
 #include "lt_math.hpp"
 #include "entities.hpp"
 
+#define PERFORMANCE_KINDS \
+	PERFORMANCE_KIND(PerformanceRegion_RenderLoop = 0, "Render loop"), \
+	PERFORMANCE_KIND(PerformanceRegion_DrawEntities, "Draw entities"), \
+	PERFORMANCE_KIND(PerformanceRegion_UpdateLoop, "Update loop"),
+
 struct GLFWwindow;
+
+enum PerformanceRegion
+{
+#define PERFORMANCE_KIND(e, s) e
+	PERFORMANCE_KINDS
+#undef PERFORMANCE_KIND
+	PerformanceRegion_Count,
+};
+
+lt_internal const char *PerformanceRegionNames[] =
+{
+#define PERFORMANCE_KIND(e, s) s
+	PERFORMANCE_KINDS
+#undef PERFORMANCE_KIND
+};
+
 
 namespace dgui
 {
+
+static_assert(LT_Count(PerformanceRegionNames) == PerformanceRegion_Count,
+			  "Both the char array and the enum should match");
 
 struct State
 {
@@ -34,6 +58,8 @@ struct State
 	i32 pcf_window_side = 3;
 	std::unordered_map<EntityHandle, std::string> entities_map;
 	EntityHandle selected_entity_handle = -1;
+
+	u64 performance_regions[PerformanceRegion_Count];
 
 	static State &instance()
 	{

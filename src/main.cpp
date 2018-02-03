@@ -27,24 +27,41 @@
 #include "input.hpp"
 #include "entities.hpp"
 #include "application.hpp"
+#include "macros.hpp"
 
 //
 // TODOs
 //
-// - Add quaterion interpolation for better rotations. (SLERP)
-//   - Hopefully then fix the game loop 
 // - Add antialiasing to the offscreen HDR buffer.
+//   - Not so easy to do
 //
-
-lt_global_variable lt::Logger logger("main");
-lt_global_variable bool g_display_debug_gui = true;
-lt_global_variable Key g_keyboard[NUM_KEYBOARD_KEYS] = {};
 
 lt_internal inline f64
 get_time_milliseconds()
 {
 	return glfwGetTime() * 1000.0;
 }
+
+struct Counter
+{
+    f64 millis;
+	u32 frames;
+	u32 updates;
+
+	inline void start() {millis = get_time_milliseconds();}
+	inline bool second_passed() {return (get_time_milliseconds() - millis) >= 1000.0;}
+	inline void restart()
+	{
+		start();
+		frames = 0;
+		updates = 0;
+	}
+};
+
+lt_global_variable lt::Logger logger("main");
+lt_global_variable bool g_display_debug_gui = true;
+lt_global_variable Key g_keyboard[NUM_KEYBOARD_KEYS] = {};
+lt_global_variable Counter g_counter = {};
 
 lt_internal void
 update_key_state(Key &key, bool key_pressed)
@@ -218,7 +235,7 @@ struct DirectionalLight
     Vec3f specular;
 };
 
-void
+lt_internal void
 game_update(Key *kb, Camera& camera, dgui::State &state)
 {
 	camera.update(kb);
@@ -299,7 +316,9 @@ game_render(f64 lag_offset, const Application &app, Camera &camera, Entities &en
 		shaders.basic->set1f("debug_gui_state.pcf_texel_offset", dgui::State::instance().pcf_texel_offset);
 		shaders.basic->set1i("debug_gui_state.pcf_window_side", dgui::State::instance().pcf_window_side);
 
+		BEGIN_REGION(PerformanceRegion_DrawEntities);
 		draw_entities(lag_offset, entities, camera, context, shadow_map, dgui::State::instance().selected_entity_handle);
+		END_REGION(PerformanceRegion_DrawEntities);
 
 		if (state.selected_entity_handle != -1)
 		{
@@ -592,10 +611,8 @@ main(void)
     // Define variables to control time
     f64 current_time = get_time_milliseconds();
 	f64 accumulator = 0;
-	f64 second_counter = get_time_milliseconds();
 
-	u32 frame_count = 0;
-	u32 update_count = 0;
+	g_counter.start();
 	f64 avg_frame_time = 0;
 
 	// Fixed clear color
@@ -635,32 +652,35 @@ main(void)
 			context.disable_multisampling();
 
 		const f64 dt = 1000 / 30.0f;
+
+		BEGIN_REGION(PerformanceRegion_UpdateLoop);
         while (accumulator >= dt)
         {
             game_update(g_keyboard, camera, dgui::State::instance());
-			update_count++;
+			g_counter.updates++;
             accumulator -= dt;
 		}
+		END_REGION(PerformanceRegion_UpdateLoop);
 
 		const f64 lag_offset = accumulator / dt;
 
+		BEGIN_REGION(PerformanceRegion_RenderLoop);
 		game_render(lag_offset, app, camera, entities, shaders, shadow_map, light_view, dir_light_pos,
 					shadow_map_surface, skybox_mesh, context);
+		END_REGION(PerformanceRegion_RenderLoop);
 
         glfwPollEvents();
 
-		frame_count++;
+		g_counter.frames++;
 		avg_frame_time += frame_time;
-		if (get_time_milliseconds() - second_counter >= 1000)
+		if (g_counter.second_passed())
 		{
-			avg_frame_time /= frame_count;
+			avg_frame_time /= g_counter.frames;
 			dgui::State::instance().frame_time = avg_frame_time;
-			dgui::State::instance().fps = frame_count;
-			dgui::State::instance().ups = update_count;
-			frame_count = 0;
-			update_count = 0;
+			dgui::State::instance().fps = g_counter.frames;
+			dgui::State::instance().ups = g_counter.updates;
 			avg_frame_time = 0;
-			second_counter = get_time_milliseconds();
+			g_counter.restart();
 		}
     }
 
